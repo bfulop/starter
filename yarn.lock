@@ -449,6 +449,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@org/modification@workspace:packages/modification":
+  version: 0.0.0-use.local
+  resolution: "@org/modification@workspace:packages/modification"
+  dependencies:
+    "@effect/core": ^0.0.10
+    "@tsplus/runtime": ^0.1.4
+    "@tsplus/stdlib": ^0.2.3
+  languageName: unknown
+  linkType: soft
+
 "@pkgr/utils@npm:^2.3.0":
   version: 2.3.0
   resolution: "@pkgr/utils@npm:2.3.0"

@@ -12,7 +12,9 @@
     "preserveSymlinks": true,
     "moduleResolution": "node",
     "noEmit": false,
-    "lib": ["ES2021"],
+    "lib": [
+      "ES2021"
+    ],
     "sourceMap": true,
     "declarationMap": true,
     "strict": true,
@@ -37,11 +39,30 @@
     "incremental": true,
     "removeComments": false,
     "paths": {
-      "@org/app": ["./packages/app/src/index.ts"],
-      "@org/app/test/*": ["./packages/app/test/*"],
-      "@org/app/*": ["./packages/app/src/*"]
+      "@org/app": [
+        "./packages/app/src/index.ts"
+      ],
+      "@org/app/test/*": [
+        "./packages/app/test/*"
+      ],
+      "@org/app/*": [
+        "./packages/app/src/*"
+      ],
+      "@org/modification": [
+        "./packages/modification/src/index.ts"
+      ],
+      "@org/modification/test/*": [
+        "./packages/modification/test/*"
+      ],
+      "@org/modification/*": [
+        "./packages/modification/src/*"
+      ],
     }
   },
   "include": [],
-  "exclude": ["node_modules", "build", "lib"]
+  "exclude": [
+    "node_modules",
+    "build",
+    "lib"
+  ]
 }
