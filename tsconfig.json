@@ -1,4 +1,11 @@
 {
   "extends": "./tsconfig.base.json",
-  "references": [{ "path": "packages/app" }]
+  "references": [
+    {
+      "path": "packages/app"
+    },
+    {
+      "path": "packages/modification"
+    }
+  ]
 }

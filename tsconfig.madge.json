@@ -26,6 +26,8 @@
   },
   "include": [
     "./packages/app/build/esm/**/*.js",
-    "./packages/app/build/test/**/*.js"
+    "./packages/app/build/test/**/*.js",
+    "./packages/modification/build/esm/**/*.js",
+    "./packages/modification/build/test/**/*.js"
   ]
 }

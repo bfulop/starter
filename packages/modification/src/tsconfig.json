@@ -5,7 +5,13 @@
     "declarationDir": "../build/dts",
     "tsBuildInfoFile": "../build/tsbuildinfo/esm.tsbuildinfo",
     "tsPlusConfig": "../../../tsplus.config.json",
-    "rootDir": "."
+    "rootDir": ".",
+    "lib": [
+      "ES2020",
+      "DOM"
+    ]
   },
-  "include": ["./**/*.ts"]
+  "include": [
+    "./**/*.ts"
+  ]
 }

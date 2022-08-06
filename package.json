@@ -9,8 +9,8 @@
     "packages/*"
   ],
   "scripts": {
-    "start": "node packages/app/build/esm/main.js",
-    "clean": "yarn workspace @org/app clean && rimraf tsconfig.tsbuildinfo",
+    "start": "node packages/modification/build/esm/main.js",
+    "clean": "yarn workspace @org/modification clean && rimraf tsconfig.tsbuildinfo",
     "build": "tsc -b tsconfig.json",
     "build-watch": "yarn build --watch",
     "circular": "yarn org:madge --ts-config ./tsconfig.madge.json --circular --no-color --no-spinner --warning packages/*/build/esm packages/*/build/test",
