@@ -1,11 +1,14 @@
 import { AccessDOM } from "@org/modification/adapters/DOM"
 import type { AppliedModifElement, CurrentState, ModificationDefinition } from "@org/modification/models/modification"
+import { DOMNodeOpaque } from "@org/modification/models/modification"
 import * as App from "@org/modification/program"
 import { expect } from "vitest"
 
+const someDOMNode = DOMNodeOpaque.make({})
+
 export const makeLiveAccessDOM = () => {
   return {
-    getByHasAttribute: () => Effect.sync("elementArray")
+    getByHasAttribute: () => Effect.sync(someDOMNode)
   }
 }
 
@@ -22,6 +25,6 @@ describe("process modifications", () => {
     const AccessDOMLive = Layer.fromValue(AccessDOM, makeLiveAccessDOM)
     const program = App.expandModifications(".myClass").provideSomeLayer(AccessDOMLive)
     const res = await program.unsafeRunPromiseExit()
-    expect(res).toEqual(Exit.succeed("elementArray"))
+    expect(res).toEqual(Exit.succeed(someDOMNode))
   })
 })

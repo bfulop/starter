@@ -1,5 +1,8 @@
+export type DOMNodeOpaque = {} & Brand<"DOMNode">
+export const DOMNodeOpaque = Derive<Make<DOMNodeOpaque>>()
+
 export type ModificationId = String & Brand<"ModificationId">
-export const ModificationId = Derive<Make<ModificationId>>
+export const ModificationId = Derive<Make<ModificationId>>()
 
 export interface HasClassName {
   readonly className: string

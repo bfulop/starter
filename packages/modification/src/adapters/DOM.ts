@@ -1,7 +1,7 @@
-import type { AppliedModifElement } from "@org/modification/models/modification"
+import type { DOMNodeOpaque } from "@org/modification/models/modification"
 
 export interface AccessDOM {
-  getByHasAttribute: (selector: string) => Effect.UIO<AppliedModifElement>
+  getByHasAttribute: (selector: string) => Effect.UIO<DOMNodeOpaque>
 }
 
 export const AccessDOM = Service.Tag<AccessDOM>()
