@@ -607,10 +607,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:*, @types/node@npm:^18.6.3":
+"@types/node@npm:*":
   version: 18.6.3
   resolution: "@types/node@npm:18.6.3"
   checksum: 38495b8fd27200d2b7ab9ccd8c1e2475d2411fba15330f2cba869a85ef79dd42382a2658c8dd298ace8c21ed3bfafcdea408faecd74928b144377d07d00e7c8c
+  languageName: node
+  linkType: hard
+
+"@types/node@npm:^18.6.4":
+  version: 18.6.4
+  resolution: "@types/node@npm:18.6.4"
+  checksum: fc453dd2b541f5812ba1a8f957f577727cf2d8aee886f1d5c03eb153b2b3373d2e0953c5bd2b7a5b184073bc317f54ec91f1ec4830a58eda4a833e90654021de
   languageName: node
   linkType: hard
 
@@ -3731,7 +3738,7 @@ __metadata:
   dependencies:
     "@repo-tooling/eslint-plugin-dprint": ^0.0.4
     "@tsplus/installer": ^0.0.132
-    "@types/node": ^18.6.3
+    "@types/node": ^18.6.4
     "@typescript-eslint/eslint-plugin": ^5.32.0
     "@typescript-eslint/parser": ^5.32.0
     eslint: ^8.21.0
@@ -3744,7 +3751,7 @@ __metadata:
     rimraf: ^3.0.2
     typescript: ^4.7.4
     vite: ^3.0.4
-    vitest: 0.20.3
+    vitest: 0.21.0
   languageName: unknown
   linkType: soft
 
@@ -4957,9 +4964,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vitest@npm:0.20.3":
-  version: 0.20.3
-  resolution: "vitest@npm:0.20.3"
+"vitest@npm:0.21.0":
+  version: 0.21.0
+  resolution: "vitest@npm:0.21.0"
   dependencies:
     "@types/chai": ^4.3.1
     "@types/chai-subset": ^1.3.3
@@ -4992,7 +4999,7 @@ __metadata:
       optional: true
   bin:
     vitest: vitest.mjs
-  checksum: 1478030f2e34ee91274a544b7d2e2d447969ce37d6452bfbc8e21fe42ec6fb94c496a09b822d7c8d667cee243b6630c871640d4a8b4434e1a25b858dad3548ed
+  checksum: c7aed226d7e67aa9409e7177c7dc6cacebc743212f22773b79d0d4795de83aff5c1c8559999b93c405afdef4f115cd527a84ecec4e2a25620be688ed3bd64695
   languageName: node
   linkType: hard
 

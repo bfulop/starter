@@ -64,5 +64,6 @@
     "**/target": true
   },
   "files.insertFinalNewline": true,
-  "testing.automaticallyOpenPeekView": "never"
+  "testing.automaticallyOpenPeekView": "never",
+  "editor.inlayHints.enabled": false
 }
