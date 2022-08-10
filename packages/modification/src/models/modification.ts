@@ -1,5 +1,5 @@
-export type DOMNodeOpaque = {} & Brand<"DOMNode">
-export const DOMNodeOpaque = Derive<Make<DOMNodeOpaque>>()
+export type Host = {} & Brand<"Host">
+export const Host = Derive<Make<Host>>()
 
 export interface HasClassName {
   readonly className: string
@@ -18,28 +18,30 @@ export type HasPosition = IsNthChild
 export type PathSelector = HasAttribute | HasPosition
 export const PathSelector = Derive<Guard<PathSelector>>()
 
-export type ModificationId = UUID
-export const ModificationId = Derive<Make<ModificationId>>()
+export type ConfigurationId = UUID
+export const ConfigurationId = Derive<Make<ConfigurationId>>()
 
-export interface ModificationDefinition {
-  readonly id: ModificationId
-  readonly path: NonEmptyImmutableArray<PathSelector>
+export type TargetPath = NonEmptyImmutableArray<PathSelector>
+
+export interface Configuration {
+  readonly id: ConfigurationId
+  readonly path: TargetPath
 }
-export const ModificationDefinition = Derive<Make<ModificationDefinition>>()
+export const Configuration = Derive<Make<Configuration>>()
 
 export const INITIAL = "initial" as const
 export const APPLIED = "applied" as const
-export const VERIFIED = "verified" as const
+export const TOVALIDATE = "toValidate" as const
 
-export type ModificationState = typeof INITIAL | typeof APPLIED | typeof VERIFIED
+export type InstanceState = typeof INITIAL | typeof APPLIED | typeof TOVALIDATE
 
-export interface AppliedModification extends ModificationDefinition {
-  readonly state: ModificationState
+export interface Instance extends Configuration {
+  readonly state: InstanceState
 }
-export const AppliedModification = Derive<Make<AppliedModification>>()
+export const Instance = Derive<Make<Instance>>()
 
-export type ModificationDefinitions = Chunk<ModificationDefinition>
+export type Configurations = Chunk<Configuration>
 
-export type AppliedModifElement = string
+export type HostInstances = HashMap<ConfigurationId, Instance>
 
-export type CurrentState = HashMap<DOMNodeOpaque, HashMap<ModificationId, AppliedModification>>
+export type CurrentState = HashMap<Host, HostInstances>

@@ -2,13 +2,13 @@ import { AccessDOM } from "@org/modification/adapters/DOM"
 import type { CurrentState, PathSelector } from "@org/modification/models/modification"
 import {
   APPLIED,
-  AppliedModification,
-  DOMNodeOpaque as DomNodeOpaque,
+  Configuration,
+  ConfigurationId,
   HasClassName,
+  Host as DomNodeOpaque,
   INITIAL,
-  ModificationDefinition,
-  ModificationId,
-  VERIFIED
+  Instance,
+  TOVALIDATE
 } from "@org/modification/models/modification"
 import * as App from "@org/modification/program"
 import crypto from "node:crypto"
@@ -26,7 +26,7 @@ export const makeLiveAccessDOM = (): AccessDOM => ({
 
 describe("process modifications", () => {
   // it("identity", () => {
-  //   const currentState: CurrentState = HashMap.from<AppliedModifElement, ModificationDefinition>(
+  //   const currentState: CurrentState = HashMap.from<AppliedModifElement, Configuration>(
   //     Collection.make(Tuple.make("what", modification))
   //   )
   //   const result = App.processModifications(Chunk.empty(), currentState)
@@ -34,13 +34,13 @@ describe("process modifications", () => {
   // })
 
   it("expands modifications", () => {
-    const id = ModificationId.make("id").getOrElse(() => ModificationId.unsafeMake("id"))
-    const modification = ModificationDefinition.make({
+    const id = ConfigurationId.unsafeMake(crypto.randomUUID())
+    const modification = Configuration.make({
       id,
       path: NonEmptyImmutableArray.make<PathSelector[]>({ className: ".someClassName" }, { className: ".lastElement" })
     })
     const modifications = Ref.unsafeMake(
-      Chunk.from<ModificationDefinition>([modification, modification])
+      Chunk.from<Configuration>([modification, modification])
     )
     const AccessDOMLive = Layer.fromValue(AccessDOM, makeLiveAccessDOM)
     const program = App.mapModificationsToTargets(modifications).provideSomeLayer(AccessDOMLive)
@@ -54,9 +54,9 @@ describe("updating state with modifications", () => {
   const targetClassname = "Classname"
   const existingTargetedElement = DomNodeOpaque.make({})
   const newTargetedElement = DomNodeOpaque.make({})
-  const oldModifId = ModificationId.unsafeMake(crypto.randomUUID())
-  const targetModifId = ModificationId.unsafeMake(crypto.randomUUID())
-  const targetModification = ModificationDefinition.make({
+  const oldModifId = ConfigurationId.unsafeMake(crypto.randomUUID())
+  const targetModifId = ConfigurationId.unsafeMake(crypto.randomUUID())
+  const targetModification = Configuration.make({
     id: targetModifId,
     path: NonEmptyImmutableArray.make<PathSelector[]>({ className: targetClassname })
   })
@@ -67,7 +67,7 @@ describe("updating state with modifications", () => {
         existingTargetedElement,
         HashMap(Tuple(
           oldModifId,
-          AppliedModification.make({
+          Instance.make({
             id: oldModifId,
             path: NonEmptyImmutableArray.make<PathSelector[]>({ className: targetClassname }),
             state: APPLIED
@@ -78,7 +78,7 @@ describe("updating state with modifications", () => {
         newTargetedElement,
         HashMap(Tuple(
           targetModifId,
-          AppliedModification.make({
+          Instance.make({
             id: targetModifId,
             path: NonEmptyImmutableArray.make<PathSelector[]>({ className: targetClassname }),
             state: APPLIED
@@ -117,7 +117,7 @@ describe("updating state with modifications", () => {
           .get(newTargetedElement)
           .flatMap(x => x.get(targetModifId))
           .map(x => x.state),
-        Maybe(VERIFIED)
+        Maybe(TOVALIDATE)
       )
     })
   })
@@ -140,4 +140,35 @@ describe("updating state with modifications", () => {
       )
     })
   })
+
+  it("not matched elements in current state are preserved", () => {
+    const currentState: CurrentState = HashMap(
+      Tuple(
+        existingTargetedElement,
+        HashMap(Tuple(
+          oldModifId,
+          Instance.make({
+            id: oldModifId,
+            path: NonEmptyImmutableArray.make<PathSelector[]>({ className: targetClassname }),
+            state: APPLIED
+          })
+        ))
+      )
+    )
+
+    const program = App.mergeModifTargetsToState(currentState, targetModification).provideSomeLayer(
+      Layer.fromValue(AccessDOM, () => ({
+        getByHasAttribute: () => Effect.succeedWith(() => Chunk.make(existingTargetedElement))
+      }))
+    )
+    const result = program.unsafeRunSync()
+    assert.deepEqual(
+      result
+        .get(existingTargetedElement)
+        .flatMap(x => x.get(oldModifId))
+        .map(x => x.state),
+      Maybe(APPLIED)
+    )
+  })
+  it.todo("target is to remove or move")
 })
