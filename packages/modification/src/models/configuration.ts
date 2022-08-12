@@ -1,4 +1,6 @@
-export type Host = {} & Brand<"Host">
+import type { DOMNode } from "@org/modification/adapters/DOM"
+
+export type Host = {} & DOMNode & Brand<"Host">
 export const Host = Derive<Make<Host>>()
 
 export interface HasClassName {
@@ -29,19 +31,9 @@ export interface Configuration {
 }
 export const Configuration = Derive<Make<Configuration>>()
 
-export const INITIAL = "initial" as const
-export const APPLIED = "applied" as const
-export const TOVALIDATE = "toValidate" as const
-
-export type InstanceState = typeof INITIAL | typeof APPLIED | typeof TOVALIDATE
-
-export interface Instance extends Configuration {
-  readonly state: InstanceState
-}
-export const Instance = Derive<Make<Instance>>()
-
 export type Configurations = Chunk<Configuration>
 
-export type HostInstances = HashMap<ConfigurationId, Instance>
-
-export type CurrentState = HashMap<Host, HostInstances>
+export interface ConfigurationOrder {
+  (id: ConfigurationId): number
+}
+export const ConfigurationOrder = Service.Tag<ConfigurationOrder>()

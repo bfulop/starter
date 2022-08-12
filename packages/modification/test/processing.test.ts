@@ -1,19 +1,19 @@
 import { AccessDOM } from "@org/modification/adapters/DOM"
-import type { CurrentState, PathSelector } from "@org/modification/models/modification"
+import type { CurrentState, PathSelector } from "@org/modification/models/configuration"
 import {
   APPLIED,
   Configuration,
   ConfigurationId,
   HasClassName,
-  Host as DomNodeOpaque,
+  Host,
   INITIAL,
   Instance,
   TOVALIDATE
-} from "@org/modification/models/modification"
+} from "@org/modification/models/configuration"
 import * as App from "@org/modification/program"
 import crypto from "node:crypto"
 
-const targetDOMNode = DomNodeOpaque.make({})
+const targetDOMNode = Host.make({})
 
 export const makeLiveAccessDOM = (): AccessDOM => ({
   getByHasAttribute: (selector: PathSelector) =>
@@ -52,8 +52,8 @@ describe("process modifications", () => {
 
 describe("updating state with modifications", () => {
   const targetClassname = "Classname"
-  const existingTargetedElement = DomNodeOpaque.make({})
-  const newTargetedElement = DomNodeOpaque.make({})
+  const existingTargetedElement = Host.make({})
+  const newTargetedElement = Host.make({})
   const oldModifId = ConfigurationId.unsafeMake(crypto.randomUUID())
   const targetModifId = ConfigurationId.unsafeMake(crypto.randomUUID())
   const targetModification = Configuration.make({
