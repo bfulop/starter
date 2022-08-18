@@ -1,39 +1,50 @@
-import type { Configuration, Configurations } from "@org/modification/models/configuration"
-import type {
-  AppliedInstances,
-  CheckedInitial,
-  CheckedStale,
-  CheckedToRemove,
-  Initial,
-  MatchedInstances,
-  Stale,
-  ToRemove
-} from "@org/modification/models/states"
+import { checkInitial, checkOrphaned, checkStale, matchConfigHosts } from "@org/modification/domQueries"
+import type { Configurations } from "@org/modification/models/configuration"
+import type { AppliedInstances, ApplyAble, Candidates, MatchedInstances } from "@org/modification/models/states"
+import { candidateInstancesEq, Initial, Orphaned, Stale } from "@org/modification/models/states"
 
-export declare function matchConfigHosts(
-  configuration: Configuration
-): Chunk<Initial>
-
-export declare function mergeHosts(applied: AppliedInstances, latest: Chunk<Initial>): Chunk<MatchedInstances>
-
-export declare function checkInitial(candidates: Initial): CheckedInitial
-
-export declare function checkStale(candidates: Stale): CheckedStale
-
-export declare function checkToRemove(candidates: ToRemove): CheckedToRemove
+export interface MergeHosts {
+  (applied: AppliedInstances, latest: Chunk<Initial>): Chunk<MatchedInstances>
+}
+export const mergeHosts: MergeHosts = (applied, latest) => {
+  const initial: Chunk<Initial> = latest.difference<Candidates>(candidateInstancesEq, applied).map(({ instance }) =>
+    Initial({ instance })
+  )
+  const stale: Chunk<Stale> = applied.intersection<Candidates>(candidateInstancesEq, latest).map(({ instance }) =>
+    Stale({ instance })
+  )
+  const orphaned: Chunk<Orphaned> = applied.difference<Candidates>(candidateInstancesEq, latest).map(({ instance }) =>
+    Orphaned({ instance })
+  )
+  return initial.concat(stale).concat(orphaned)
+}
 
 export function prepareConfigsToApply(configs: Ref<Configurations>, instances: AppliedInstances) {
   return Do(($) => {
     const configurations = $(configs.get)
-    return configurations
-      .map(matchConfigHosts)
-      .flatMap((x) => mergeHosts(instances, x))
-      .map(x =>
-        Match.tag(x, {
-          Initial: checkInitial,
-          Stale: checkStale,
-          ToRemove: checkToRemove
-        })
+
+    const res = Effect.forEach(configurations, (a) => matchConfigHosts(instances, a))
+      .map(x => x.flatten)
+      .map(x => mergeHosts(instances, x))
+      .flatMap(x =>
+        Effect.forEach(x, (b) =>
+          Match.tag(b, {
+            Initial: checkInitial,
+            Stale: checkStale,
+            Orphaned: checkOrphaned
+          }))
       )
+      .map((x): Chunk<ApplyAble> =>
+        x.collect(i =>
+          Match.tag(i, {
+            Apply: a => Maybe.some(a),
+            Rollback: a => Maybe.some(a),
+            Applied: a => Maybe.some(a),
+            Drop: () => Maybe.none
+          })
+        )
+      )
+      .map(x => x)
+    return res
   })
 }

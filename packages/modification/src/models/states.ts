@@ -1,21 +1,16 @@
-import type { Configuration, Host } from "@org/modification/models/configuration"
+import type { Configuration } from "@org/modification/models/configuration"
 
 export interface Instance extends Configuration {
-  readonly host: Host
+  readonly host: ChildNode
 }
 export const Instance = Derive<Make<Instance>>()
 
-// unvalidated
-// - initial
-// - applied
-
-// validated
-// - ignore
-// - remove
-// - apply
-
-// validated.remove | validated.remove →  forget
-// validated.apply → applied
+export const candidateInstancesEq: Equivalence<Candidates> = Equivalence.struct({
+  instance: Equivalence.struct({
+    id: Equivalence.string,
+    host: Equivalence.strict<ChildNode>()
+  })
+})
 
 export interface Initial extends Case {
   readonly _tag: "Initial"
@@ -30,13 +25,9 @@ export interface Applied extends Case {
 export const Applied = Case.tagged<Applied>("Applied")
 
 export type AppliedInstances = Chunk<Applied>
+export type Candidates = Initial | Applied
 
-export type MatchedInstances = Initial | Stale | ToRemove
-
-export interface ToIgnore extends Case {
-  readonly _tag: "ToIgnore"
-}
-export const ToIgnore = Case.tagged<ToIgnore>("ToIgnore")
+export type MatchedInstances = Initial | Stale | Orphaned
 
 export interface Stale extends Case {
   readonly _tag: "Stale"
@@ -44,29 +35,32 @@ export interface Stale extends Case {
 }
 export const Stale = Case.tagged<Stale>("Stale")
 
-export interface ToRemove extends Case {
-  readonly _tag: "ToRemove"
+export interface Orphaned extends Case {
+  readonly _tag: "Orphaned"
   readonly instance: Instance
 }
-export const ToRemove = Case.tagged<ToRemove>("ToRemove")
+export const Orphaned = Case.tagged<Orphaned>("Orphaned")
 
-export interface ToApply extends Case {
-  readonly _tag: "ToApply"
+export interface Apply extends Case {
+  readonly _tag: "Apply"
   readonly instance: Instance
 }
-export const ToApply = Case.tagged<ToApply>("ToApply")
+export const Apply = Case.tagged<Apply>("Apply")
 
-export interface ToForget extends Case {
-  readonly _tag: "ToForget"
+export interface Drop extends Case {
+  readonly _tag: "Drop"
   readonly instance: Instance
 }
-export const ToForget = Case.tagged<ToForget>("ToForget")
+export const Drop = Case.tagged<Drop>("Drop")
 
-export type CheckedInitial = ToIgnore | ToApply
-export type CheckedStale = ToApply | Rollback
-export type CheckedToRemove = ToIgnore | Rollback
+export type CheckedInitial = Drop | Apply
+export type CheckedStale = Apply | Rollback | Applied
+export type CheckedToRemove = Drop | Rollback
+export type CheckedPrecedingInstance = Drop | Rollback | Apply | Applied
+export type UnCheckedNextInstance = Stale | Orphaned | Initial
 
-export type Validated = ToIgnore | ToRemove | ToApply
+export type Validated = Drop | Orphaned | Apply
+export type ApplyAble = Apply | Rollback | Applied
 
 export interface Rollback extends Case {
   readonly _tag: "Rollback"

@@ -13,7 +13,9 @@
     "moduleResolution": "node",
     "noEmit": false,
     "lib": [
-      "ES2021"
+      "ES2021",
+      "DOM",
+      "dom.iterable"
     ],
     "sourceMap": true,
     "declarationMap": true,

@@ -7,3 +7,4 @@
 - `host`: the DOM element that one `instance` has been applied to (_inspired by WestWorld_)
 - `selectorPath`:  the path to select `host`s on the page
 - `action`: the change we want to apply on the host
+- `modification`: change to be applied on a DOM element
