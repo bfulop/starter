@@ -28,11 +28,11 @@
   "devDependencies": {
     "@repo-tooling/eslint-plugin-dprint": "^0.0.4",
     "@tsplus/installer": "^0.0.135",
-    "@types/node": "^18.7.5",
+    "@types/node": "^18.7.6",
     "@typescript-eslint/eslint-plugin": "^5.33.1",
     "@typescript-eslint/parser": "^5.33.1",
     "eslint": "^8.22.0",
-    "eslint-import-resolver-typescript": "^3.4.1",
+    "eslint-import-resolver-typescript": "^3.4.2",
     "eslint-plugin-codegen": "0.16.1",
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-simple-import-sort": "^7.0.0",
@@ -41,8 +41,8 @@
     "madge": "^5.0.1",
     "rimraf": "^3.0.2",
     "typescript": "^4.7.4",
-    "vite": "^3.0.7",
-    "vitest": "0.21.1"
+    "vite": "^3.0.8",
+    "vitest": "0.22.1"
   },
   "resolutions": {
     "eslint-plugin-codegen": "patch:eslint-plugin-codegen@npm:0.16.1#.yarn/patches/eslint-plugin-codegen-npm-0.16.1-87770191cd"

@@ -1,7 +1,9 @@
 import type { Configuration } from "@org/modification/models/configuration"
+import type { ChangeDefinition } from "@org/modification/models/modification"
 
 export interface Instance extends Configuration {
   readonly host: ChildNode
+  readonly inputChange: Maybe<ChangeDefinition>
 }
 export const Instance = Derive<Make<Instance>>()
 
@@ -41,11 +43,11 @@ export interface Orphaned extends Case {
 }
 export const Orphaned = Case.tagged<Orphaned>("Orphaned")
 
-export interface Apply extends Case {
+export interface ToApply extends Case {
   readonly _tag: "Apply"
   readonly instance: Instance
 }
-export const Apply = Case.tagged<Apply>("Apply")
+export const ToApply = Case.tagged<ToApply>("Apply")
 
 export interface Drop extends Case {
   readonly _tag: "Drop"
@@ -53,14 +55,14 @@ export interface Drop extends Case {
 }
 export const Drop = Case.tagged<Drop>("Drop")
 
-export type CheckedInitial = Drop | Apply
-export type CheckedStale = Apply | Rollback | Applied
+export type CheckedInitial = Drop | ToApply
+export type CheckedStale = ToApply | Rollback | Applied
 export type CheckedToRemove = Drop | Rollback
-export type CheckedPrecedingInstance = Drop | Rollback | Apply | Applied
+export type CheckedPrecedingInstance = Drop | Rollback | ToApply | Applied
 export type UnCheckedNextInstance = Stale | Orphaned | Initial
 
-export type Validated = Drop | Orphaned | Apply
-export type ApplyAble = Apply | Rollback | Applied
+export type Validated = Drop | Orphaned | ToApply
+export type ApplyAble = ToApply | Rollback | Applied
 
 export interface Rollback extends Case {
   readonly _tag: "Rollback"

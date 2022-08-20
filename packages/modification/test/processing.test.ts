@@ -29,7 +29,8 @@ describe("merge new matched hosts with already applied", () => {
           id: config1,
           path: pathSelector1,
           host: newHost,
-          change: someChange
+          outputChange: someChange,
+          inputChange: Maybe.none
         }
       })])
     )
@@ -40,7 +41,8 @@ describe("merge new matched hosts with already applied", () => {
           id: config1,
           path: pathSelector1,
           host: newHost,
-          change: someChange
+          outputChange: someChange,
+          inputChange: Maybe.none
         }
       })]),
       "not a list of Initial"
@@ -53,7 +55,8 @@ describe("merge new matched hosts with already applied", () => {
           id: config1,
           path: pathSelector1,
           host: someHost,
-          change: someChange
+          outputChange: someChange,
+          inputChange: Maybe.none
         }
       })]),
       Chunk.from([Initial({
@@ -61,7 +64,8 @@ describe("merge new matched hosts with already applied", () => {
           id: config1,
           path: pathSelector1,
           host: someHost,
-          change: someChange
+          outputChange: someChange,
+          inputChange: Maybe.none
         }
       })])
     )
@@ -72,7 +76,8 @@ describe("merge new matched hosts with already applied", () => {
           id: config1,
           path: pathSelector1,
           host: someHost,
-          change: someChange
+          outputChange: someChange,
+          inputChange: Maybe.none
         }
       })]),
       "not a list of Stale"
@@ -85,7 +90,8 @@ describe("merge new matched hosts with already applied", () => {
           id: config1,
           path: pathSelector1,
           host: someHost,
-          change: someChange
+          outputChange: someChange,
+          inputChange: Maybe.none
         }
       })]),
       Chunk.empty()
@@ -97,7 +103,8 @@ describe("merge new matched hosts with already applied", () => {
           id: config1,
           path: pathSelector1,
           host: someHost,
-          change: someChange
+          outputChange: someChange,
+          inputChange: Maybe.none
         }
       })]),
       "not a list of Orphaned"

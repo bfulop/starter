@@ -22,7 +22,7 @@ export type TargetPath = NonEmptyImmutableArray<PathSelector>
 export interface Configuration {
   readonly id: ConfigurationId
   readonly path: TargetPath
-  readonly change: ChangeDefinition
+  readonly outputChange: ChangeDefinition
 }
 export const Configuration = Derive<Make<Configuration>>()
 

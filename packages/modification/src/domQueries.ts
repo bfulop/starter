@@ -46,10 +46,11 @@ export const matchConfigHosts: MatchConfigHosts = (instances, configuration) => 
       .map(x => x.flatten)
       .flatMap(x => naiveMatches.map(a => a.concat(x)))
       .map(x =>
-        x.map(a =>
+        x.map(domNode =>
           Initial({
             instance: {
-              host: a,
+              host: domNode,
+              inputChange: Maybe.none, // TODO: calculate input change
               ...configuration
             }
           })
@@ -85,14 +86,32 @@ export interface MatchNodeAttribute {
 export const matchNodeAttribute: MatchNodeAttribute = (matchCondition, node, precedingInstance, nextInstance) =>
   Do(($) => {
     const accessDom = $(Effect.service(AccessDOM))
+    const currentAttributeValue = $(accessDom.getAttribute(node, matchCondition.selector))
+    const failValue = { value: null }
+    const considerFollowing = (following: Orphaned | Stale) =>
+      following.instance.inputChange.map(identity).getOrElse(() => failValue)
     const targetAttributeValue = precedingInstance.map(t =>
       Match.tag(t, {
-        Applied: (preceding) => preceding.instance.change,
-        Apply: (preceding) => preceding.instance.change,
-        Drop: () => matchCondition,
-        Rollback: (preceding) => preceding.instance.change
+        Applied: () => currentAttributeValue,
+        Apply: (preceding) => preceding.instance.outputChange,
+        Drop: () =>
+          nextInstance.map(n =>
+            Match.tag(n, {
+              Initial: () => currentAttributeValue,
+              Orphaned: considerFollowing,
+              Stale: considerFollowing
+            })
+          ).getOrElse(() => currentAttributeValue),
+        Rollback: (preceding) => preceding.instance.inputChange.map(identity).getOrElse(() => failValue)
       })
-    ).getOrElse(() => matchCondition)
-    const currentAttributeValue = $(accessDom.getAttribute(node, matchCondition.selector))
-    return targetAttributeValue.value === currentAttributeValue.value
+    ).getOrElse(() =>
+      nextInstance.map(n =>
+        Match.tag(n, {
+          Initial: () => currentAttributeValue,
+          Orphaned: considerFollowing,
+          Stale: considerFollowing
+        })
+      ).getOrElse(() => currentAttributeValue)
+    )
+    return matchCondition.value === targetAttributeValue.value
   })
