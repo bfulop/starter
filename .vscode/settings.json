@@ -65,5 +65,5 @@
   },
   "files.insertFinalNewline": true,
   "testing.automaticallyOpenPeekView": "never",
-  "editor.inlayHints.enabled": true
+  "editor.inlayHints.enabled": false
 }
