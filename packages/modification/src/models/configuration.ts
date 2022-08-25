@@ -1,9 +1,5 @@
-import type { DOMNode } from "@org/modification/adapters/dom"
 import type { ClassNameAttribute } from "@org/modification/models/dom"
 import type { ChangeDefinition } from "@org/modification/models/modification"
-
-export type Host = {} & DOMNode & Brand<"Host">
-export const Host = Derive<Make<Host>>()
 
 export interface IsNthChild {
   readonly position: Int
@@ -24,6 +20,13 @@ export interface Configuration {
   readonly path: TargetPath
   readonly outputChange: ChangeDefinition
 }
-export const Configuration = Derive<Make<Configuration>>()
+export const configuration = Derive<Make<Configuration>>()
 
 export type Configurations = Chunk<Configuration>
+
+export type ActiveConfigurations = Ref<Configurations>
+
+export interface LiveConfigurations {
+  configurations: Configurations
+}
+export const LiveConfigurations = Service.Tag<LiveConfigurations>()

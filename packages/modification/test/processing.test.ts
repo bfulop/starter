@@ -1,113 +1,112 @@
-import type { PathSelector } from "@org/modification/models/configuration"
-import { ConfigurationId } from "@org/modification/models/configuration"
-import { ClassNameAttribute } from "@org/modification/models/dom"
-import type { ChangeDefinition } from "@org/modification/models/modification"
-import { Applied, Initial, Orphaned, Stale } from "@org/modification/models/states"
+import { AccessDOM } from "@org/modification/adapters/dom"
+import type { Configuration, PathSelector } from "@org/modification/models/configuration"
+import { configuration, ConfigurationId } from "@org/modification/models/configuration"
+import { ClassNameAttribute, DomAttribute } from "@org/modification/models/dom"
+import { Applied, Drop, Orphaned } from "@org/modification/models/states"
 import * as App from "@org/modification/program"
 import { DOMParser } from "linkedom"
 import crypto from "node:crypto"
 
-const document = (new DOMParser()).parseFromString("<html />", "text/html")
+describe("marking instances that have been removed from configurations list", () => {
+  it("marks first orphaned instance", () => {
+    const config1Id = ConfigurationId.unsafeMake(crypto.randomUUID())
+    const config2Id = ConfigurationId.unsafeMake(crypto.randomUUID())
+    const config3Id = ConfigurationId.unsafeMake(crypto.randomUUID())
+    const targetPath = ClassNameAttribute({ selector: "className", value: "x" })
+    const subjectConfigPath = NonEmptyImmutableArray.make<PathSelector[]>(targetPath)
+    const config1: Configuration = configuration.make({
+      id: config1Id,
+      path: subjectConfigPath,
+      outputChange: ClassNameAttribute({ selector: "className", value: "a" })
+    })
+    const config2: Configuration = configuration.make({
+      id: config2Id,
+      path: subjectConfigPath,
+      outputChange: ClassNameAttribute({ selector: "className", value: "b" })
+    })
+    const config3: Configuration = configuration.make({
+      id: config3Id,
+      path: subjectConfigPath,
+      outputChange: ClassNameAttribute({ selector: "className", value: "c" })
+    })
+    const instance1Conf = {
+      instance: { ...config1, inputChange: Maybe(ClassNameAttribute({ selector: "className", value: "x" })) }
+    }
+    const appliedInstance1: Applied = Applied(instance1Conf)
+    const instance2Conf = {
+      instance: { ...config2, inputChange: Maybe(ClassNameAttribute({ selector: "className", value: "a" })) }
+    }
+    const appliedInstance2: Applied = Applied(instance2Conf)
+    const instance3Conf = {
+      instance: { ...config3, inputChange: Maybe(ClassNameAttribute({ selector: "className", value: "b" })) }
+    }
+    const appliedInstance3: Applied = Applied(instance3Conf)
+    const AppliedInstances = Chunk(appliedInstance1, appliedInstance2, appliedInstance3)
+    const program = Ref.make(Chunk(config1, config3)).flatMap(ref => App.markOrphanedInstances(ref, AppliedInstances))
+    const result = program.unsafeRunSync()
+    assert.deepEqual(
+      result.head,
+      Maybe(appliedInstance1),
+      "first instance should be Applied"
+    )
+    assert.deepEqual(
+      result[1],
+      Maybe(Orphaned(instance2Conf)),
+      "second should be Orphaned"
+    )
+    assert.deepEqual(
+      result.last,
+      Maybe(Orphaned(instance3Conf)),
+      "last should ALSO be Orphaned"
+    )
+  })
+})
 
-describe("merge new matched hosts with already applied", () => {
-  const config1 = ConfigurationId.unsafeMake(crypto.randomUUID())
-  const pathSelector1 = NonEmptyImmutableArray.make<PathSelector[]>(
-    ClassNameAttribute({ value: "targetClassname", selector: "className" })
-  )
-  const newHost = document.createElement("div") as unknown as Element
-  const someHost = document.createElement("div") as unknown as Element
-  const someChange: ChangeDefinition = ClassNameAttribute({
-    selector: "className",
-    value: "someValue"
+describe("marking instances where the actual dom attribute does not match their output", () => {
+  const MODIF_OUTPUT = "b"
+  const document = (new DOMParser()).parseFromString("<html />", "text/html")
+  const someDomNode = document.createElement("div") as unknown as Element
+  const config1Id = ConfigurationId.unsafeMake(crypto.randomUUID())
+  const config2Id = ConfigurationId.unsafeMake(crypto.randomUUID())
+  const targetPath = ClassNameAttribute({ selector: "className", value: "x" })
+  const subjectConfigPath = NonEmptyImmutableArray.make<PathSelector[]>(targetPath)
+  const config1: Configuration = configuration.make({
+    id: config1Id,
+    path: subjectConfigPath,
+    outputChange: ClassNameAttribute({ selector: "className", value: "a" })
+  })
+  const config2: Configuration = configuration.make({
+    id: config2Id,
+    path: subjectConfigPath,
+    outputChange: ClassNameAttribute({ selector: "className", value: MODIF_OUTPUT })
   })
 
-  it("marks new hosts as initial", () => {
-    const result = App.mergeHosts(
-      Chunk.empty(),
-      Chunk.from([Initial({
-        instance: {
-          id: config1,
-          path: pathSelector1,
-          host: newHost,
-          outputChange: someChange,
-          inputChange: Maybe.none
-        }
-      })])
-    )
-    assert.deepEqual(
-      result,
-      Chunk.from([Initial({
-        instance: {
-          id: config1,
-          path: pathSelector1,
-          host: newHost,
-          outputChange: someChange,
-          inputChange: Maybe.none
-        }
-      })]),
-      "not a list of Initial"
-    )
+  const instance1Conf = {
+    instance: { ...config1, inputChange: Maybe(ClassNameAttribute({ selector: "className", value: "x" })) }
+  }
+  const instance2Conf = {
+    instance: { ...config2, inputChange: Maybe(ClassNameAttribute({ selector: "className", value: "a" })) }
+  }
+  it("marks them as Drop", () => {
+    const CURRENT_DOM_ATTRIBUTE = "z"
+    const program = App.markDropInstances(someDomNode, Chunk(Applied(instance1Conf), Applied(instance2Conf)))
+      .provideService(AccessDOM, {
+        getByHasAttribute: () => Effect.succeedWith(() => Chunk(someDomNode)),
+        getAttribute: () =>
+          Effect.succeedWith(() => DomAttribute({ selector: "className", value: CURRENT_DOM_ATTRIBUTE }))
+      })
+      .unsafeRunSync()
+    assert.deepEqual(program.head, Maybe(Drop(instance1Conf)), "first should be Drop")
+    assert.deepEqual(program.last, Maybe(Drop(instance2Conf)), "last should be Drop")
   })
-  it("marks hosts that exist in both matches as stale", () => {
-    const result = App.mergeHosts(
-      Chunk.from([Applied({
-        instance: {
-          id: config1,
-          path: pathSelector1,
-          host: someHost,
-          outputChange: someChange,
-          inputChange: Maybe.none
-        }
-      })]),
-      Chunk.from([Initial({
-        instance: {
-          id: config1,
-          path: pathSelector1,
-          host: someHost,
-          outputChange: someChange,
-          inputChange: Maybe.none
-        }
-      })])
-    )
-    assert.deepEqual(
-      result,
-      Chunk.from([Stale({
-        instance: {
-          id: config1,
-          path: pathSelector1,
-          host: someHost,
-          outputChange: someChange,
-          inputChange: Maybe.none
-        }
-      })]),
-      "not a list of Stale"
-    )
-  })
-  it("marks hosts that no longer match selector as Orphaned", () => {
-    const result = App.mergeHosts(
-      Chunk.from([Applied({
-        instance: {
-          id: config1,
-          path: pathSelector1,
-          host: someHost,
-          outputChange: someChange,
-          inputChange: Maybe.none
-        }
-      })]),
-      Chunk.empty()
-    )
-    assert.deepEqual(
-      result,
-      Chunk.from([Orphaned({
-        instance: {
-          id: config1,
-          path: pathSelector1,
-          host: someHost,
-          outputChange: someChange,
-          inputChange: Maybe.none
-        }
-      })]),
-      "not a list of Orphaned"
-    )
+  it("keeps them as Applied", () => {
+    const program = App.markDropInstances(someDomNode, Chunk(Applied(instance1Conf), Applied(instance2Conf)))
+      .provideService(AccessDOM, {
+        getByHasAttribute: () => Effect.succeedWith(() => Chunk(someDomNode)),
+        getAttribute: () => Effect.succeedWith(() => DomAttribute({ selector: "className", value: MODIF_OUTPUT }))
+      })
+      .unsafeRunSync()
+    assert.deepEqual(program.head, Maybe(Applied(instance1Conf)), "first should be Applied")
+    assert.deepEqual(program.last, Maybe(Applied(instance2Conf)), "last should be Applied")
   })
 })

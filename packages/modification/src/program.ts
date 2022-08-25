@@ -1,50 +1,62 @@
-import { checkInitial, checkOrphaned, checkStale, matchConfigHosts } from "@org/modification/domQueries"
+import { AccessDOM } from "@org/modification/adapters/dom"
 import type { Configurations } from "@org/modification/models/configuration"
-import type { AppliedInstances, ApplyAble, Candidates, MatchedInstances } from "@org/modification/models/states"
-import { candidateInstancesEq, Initial, Orphaned, Stale } from "@org/modification/models/states"
+import type { AttributeNames } from "@org/modification/models/dom"
+import type { Applied, InstancesState, OrphanedChecked } from "@org/modification/models/states"
+import { Drop, Orphaned } from "@org/modification/models/states"
+import { Tuple } from "@tsplus/stdlib/data/Tuple"
 
-export interface MergeHosts {
-  (applied: AppliedInstances, latest: Chunk<Initial>): Chunk<MatchedInstances>
-}
-export const mergeHosts: MergeHosts = (applied, latest) => {
-  const initial: Chunk<Initial> = latest.difference<Candidates>(candidateInstancesEq, applied).map(({ instance }) =>
-    Initial({ instance })
-  )
-  const stale: Chunk<Stale> = applied.intersection<Candidates>(candidateInstancesEq, latest).map(({ instance }) =>
-    Stale({ instance })
-  )
-  const orphaned: Chunk<Orphaned> = applied.difference<Candidates>(candidateInstancesEq, latest).map(({ instance }) =>
-    Orphaned({ instance })
-  )
-  return initial.concat(stale).concat(orphaned)
-}
-
-export function prepareConfigsToApply(configs: Ref<Configurations>, instances: AppliedInstances) {
+export function markDropInstances(node: ChildNode, instances: Chunk<OrphanedChecked>) {
   return Do(($) => {
-    const configurations = $(configs.get)
-
-    const res = Effect.forEach(configurations, (a) => matchConfigHosts(instances, a))
-      .map(x => x.flatten)
-      .map(x => mergeHosts(instances, x))
-      .flatMap(x =>
-        Effect.forEach(x, (b) =>
-          Match.tag(b, {
-            Initial: checkInitial,
-            Stale: checkStale,
-            Orphaned: checkOrphaned
-          }))
-      )
-      .map((x): Chunk<ApplyAble> =>
-        x.collect(i =>
-          Match.tag(i, {
-            Apply: a => Maybe.some(a),
-            Rollback: a => Maybe.some(a),
-            Applied: a => Maybe.some(a),
-            Drop: () => Maybe.none
-          })
+    const { getAttribute } = $(Effect.service(AccessDOM))
+    return $(
+      instances
+        .last
+        .map(
+          i =>
+            getAttribute(node, i.instance.outputChange.selector)
+              .map(attributeValue => attributeValue.value === i.instance.outputChange.value)
+              .map(isMatching => isMatching ? instances : instances.map(i => Drop({ instance: i.instance })))
         )
-      )
-      .map(x => x)
-    return res
+        .getOrElse(() => Effect.succeedWith(() => instances))
+    )
   })
+}
+
+export function markOrphanedInstances(
+  configurations: Ref<Configurations>,
+  instances: Chunk<Applied>
+): Effect.UIO<Chunk<OrphanedChecked>> {
+  return Do(($) => {
+    const configs = $(configurations.get)
+    return instances.reduce(Chunk.empty<OrphanedChecked>(), (acc, instance) => {
+      const newElem = configs
+        .find(c => c.id === instance.instance.id)
+        .map(() =>
+          acc.last.map(i =>
+            Match.tag(i, {
+              "Applied": () => instance,
+              "Orphaned": () => Orphaned({ instance: instance.instance })
+            })
+          ).getOrElse(() => instance)
+        ).getOrElse(() => Orphaned({ instance: instance.instance }))
+
+      return acc.append(newElem)
+    })
+  })
+}
+
+export function markOrphanedTargets(configurations: Ref<Configurations>, targets: Map<AttributeNames, Chunk<Applied>>) {
+  return Effect.forEach(
+    targets.toImmutableArray,
+    ([attribute, instances]) => markOrphanedInstances(configurations, instances).map(x => Tuple(attribute, x))
+  )
+}
+
+export function markOrphaned(configurations: Ref<Configurations>, instances: InstancesState) {
+  const newState = Effect.forEach(
+    instances.toImmutableArray,
+    ([node, targets]) => markOrphanedTargets(configurations, targets).map(x => Tuple(node, x))
+  )
+
+  return newState.map(x => Map.from(x))
 }
