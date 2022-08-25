@@ -22,6 +22,18 @@ export function markDropInstances(node: ChildNode, instances: Chunk<OrphanedChec
   })
 }
 
+export function markDroppedTargets(
+  node: ChildNode,
+  targets: Map<AttributeNames, Chunk<OrphanedChecked>>
+) {
+  const newState = Effect.forEach(
+    targets
+      .toImmutableArray,
+    ([attributeName, instances]) => markDropInstances(node, instances).map(x => Tuple(attributeName, x))
+  )
+  return newState.map(x => Map.from(x))
+}
+
 export function markOrphanedInstances(
   configurations: Ref<Configurations>,
   instances: Chunk<Applied>
@@ -46,17 +58,29 @@ export function markOrphanedInstances(
 }
 
 export function markOrphanedTargets(configurations: Ref<Configurations>, targets: Map<AttributeNames, Chunk<Applied>>) {
-  return Effect.forEach(
+  const newState = Effect.forEach(
     targets.toImmutableArray,
     ([attribute, instances]) => markOrphanedInstances(configurations, instances).map(x => Tuple(attribute, x))
   )
+  return newState.map(x => Map.from(x))
 }
 
-export function markOrphaned(configurations: Ref<Configurations>, instances: InstancesState) {
+export function markOrphanedAndDrop(configurations: Ref<Configurations>, instances: InstancesState) {
   const newState = Effect.forEach(
     instances.toImmutableArray,
-    ([node, targets]) => markOrphanedTargets(configurations, targets).map(x => Tuple(node, x))
+    ([node, targets]) =>
+      markOrphanedTargets(configurations, targets)
+        .map(x => Tuple(node, x))
   )
+    .flatMap(x =>
+      Effect.forEach(
+        x,
+        b =>
+          markDroppedTargets(b[0], b[1])
+            .map(x => Tuple(b.toNative[0], x))
+            .map(d => d)
+      )
+    )
 
   return newState.map(x => Map.from(x))
 }
