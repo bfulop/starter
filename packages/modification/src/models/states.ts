@@ -41,4 +41,13 @@ export interface Applied extends Case {
 
 export const Applied = Case.tagged<Applied>("Applied")
 
+export interface Apply extends Case {
+  readonly _tag: "Apply"
+  readonly instance: Instance
+}
+
+export const Apply = Case.tagged<Apply>("Apply")
+
 export type OrphanedChecked = Applied | Orphaned
+
+export type OrphanedDropChecked = OrphanedChecked | Drop

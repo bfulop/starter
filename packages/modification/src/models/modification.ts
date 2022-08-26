@@ -1,3 +1,3 @@
-import type { ClassNameAttribute } from "./dom"
+import type { DomAttribute } from "./dom"
 
-export type ChangeDefinition = ClassNameAttribute
+export type ChangeDefinition = DomAttribute

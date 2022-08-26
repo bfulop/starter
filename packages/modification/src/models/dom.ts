@@ -6,15 +6,13 @@ export type AttributeValue = string
 
 export interface DomAttribute extends Case {
   readonly _tag: "DomAttribute"
-  value: AttributeValue
-  selector: AttributeNames
+  readonly value: AttributeValue
+  readonly selector: AttributeNames
 }
 export const DomAttribute = Case.tagged<DomAttribute>("DomAttribute")
 
-export interface ClassNameAttribute extends Case {
-  readonly _tag: "ClassName"
+export interface ClassNameAttribute extends DomAttribute {
   readonly selector: "className"
-  readonly value: AttributeValue
 }
 
-export const ClassNameAttribute = Case.tagged<ClassNameAttribute>("ClassName")
+export const ClassNameAttribute = Case.tagged<ClassNameAttribute>("DomAttribute")
