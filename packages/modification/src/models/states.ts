@@ -51,3 +51,5 @@ export const Apply = Case.tagged<Apply>("Apply")
 export type OrphanedChecked = Applied | Orphaned
 
 export type OrphanedDropChecked = OrphanedChecked | Drop
+
+export type OrphanedDropApply = OrphanedChecked | Drop | Apply

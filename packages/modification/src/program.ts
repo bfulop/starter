@@ -1,7 +1,13 @@
 import { AccessDOM } from "@org/modification/adapters/DOM"
 import type { Configurations } from "@org/modification/models/configuration"
 import type { AttributeNames, DomAttribute } from "@org/modification/models/dom"
-import type { Applied, InstancesState, OrphanedChecked, OrphanedDropChecked } from "@org/modification/models/states"
+import type {
+  Applied,
+  InstancesState,
+  OrphanedChecked,
+  OrphanedDropApply,
+  OrphanedDropChecked
+} from "@org/modification/models/states"
 import { Apply, Drop, Orphaned } from "@org/modification/models/states"
 import { Tuple } from "@tsplus/stdlib/data/Tuple"
 
@@ -110,6 +116,24 @@ export function addAllNewMatchedNodes(
           )
       ).map(x => x.flatten)
     )
+    const updatedHosts = instances.toImmutableArray.map(([node, targets]) => {
+      const newTargets = targets.toImmutableArray.map(([attribute, configs]) => {
+        const newStack = configs.reduce(Chunk.empty<OrphanedDropApply>(), (accInst, currInst) => {
+          const currInstPosition = configurations.indexWhere(c => c.id === currInst.instance.id)
+          const inputChange: Maybe<DomAttribute> = currInst.last.map(a => a.instance.outputChange).orElse(() =>
+            getAttribute(node, attribute)
+          )
+          const previousCandidate = configurations.reduceWithIndex(Maybe.empty<Apply>(), (index, found, config) => {
+            return found.isNone() ?
+              index < currInstPosition ? Maybe.some(Apply({ instance: { ...config, inputChange } })) : Maybe.none :
+              Maybe.none
+          })
+        })
+        // const newHosts =  configurations.reduce(Chunk.empty<OrphanedDropChecked>(), (acc, curr) => {
+
+        // })
+      })
+    })
     // merge newCandidates with state
     // a. newCandidate arleady exist → update the chunk list, mark orphaned if necessary
     // b. does not exist → just add it
