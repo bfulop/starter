@@ -1,30 +1,25 @@
 import { AccessDOM } from "@org/modification/adapters/DOM"
 import type { Configurations } from "@org/modification/models/configuration"
-import type { AttributeNames, DomAttribute } from "@org/modification/models/dom"
-import type {
-  Applied,
-  InstancesState,
-  OrphanedChecked,
-  OrphanedDropApply,
-  OrphanedDropChecked
-} from "@org/modification/models/states"
-import { Apply, Drop, Orphaned } from "@org/modification/models/states"
+import type { AttributeNames } from "@org/modification/models/dom"
+import type { Applied, InstancesState, OrphanedChecked, OrphanedDropChecked } from "@org/modification/models/states"
+import { Drop, Orphaned } from "@org/modification/models/states"
 import { Tuple } from "@tsplus/stdlib/data/Tuple"
 
 export function markDropInstances(node: ChildNode, instances: Chunk<OrphanedChecked>) {
   return Do(($) => {
     const { getAttribute } = $(Effect.service(AccessDOM))
-    return $(
-      instances
-        .last
-        .map(
-          i =>
-            getAttribute(node, i.instance.outputChange.selector)
-              .map(attributeValue => attributeValue.value === i.instance.outputChange.value)
-              .map(isMatching => isMatching ? instances : instances.map(i => Drop({ instance: i.instance })))
-        )
-        .getOrElse(() => Effect.succeedWith(() => instances))
-    )
+    const result = instances
+      .last
+      .map(
+        i =>
+          getAttribute(node, i.instance.outputChange.selector)
+            .map(attributeValue => attributeValue.value === i.instance.outputChange.value)
+            .map(isMatching => isMatching ? instances : instances.map(i => Drop({ instance: i.instance })))
+            .getOrElse(() => instances.map(i => Drop({ instance: i.instance })))
+      )
+      .getOrElse(() => instances)
+
+    return result
   })
 }
 
@@ -97,93 +92,99 @@ export function markOrphanedAndDrop(configurations: Ref<Configurations>, instanc
 // → look up previous Instance.out
 // → it must be Applied or toApply
 // → add onto the ChildNode stack
-
-export function addAllNewMatchedNodes(
+export function mergeConfigurationsToState(
   configurations: Configurations,
   instances: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>>
 ) {
-  return Do(($) => {
-    const { getAttribute, getByHasAttribute } = $(Effect.service(AccessDOM))
-    const newCandidates = $(
-      Effect.forEach(
-        configurations,
-        configuration =>
-          getByHasAttribute(configuration.path.last).map(nodes =>
-            nodes.map(node => ({
-              node,
-              configuration
-            }))
-          )
-      ).map(x => x.flatten)
-    )
-    const updatedHosts = instances.toImmutableArray.map(([node, targets]) => {
-      const newTargets = targets.toImmutableArray.map(([attribute, configs]) => {
-        const newStack = configs.reduce(Chunk.empty<OrphanedDropApply>(), (accInst, currInst) => {
-          const currInstPosition = configurations.indexWhere(c => c.id === currInst.instance.id)
-          const inputChange: Maybe<DomAttribute> = currInst.last.map(a => a.instance.outputChange).orElse(() =>
-            getAttribute(node, attribute)
-          )
-          const previousCandidate = configurations.reduceWithIndex(Maybe.empty<Apply>(), (index, found, config) => {
-            return found.isNone() ?
-              index < currInstPosition ? Maybe.some(Apply({ instance: { ...config, inputChange } })) : Maybe.none :
-              Maybe.none
-          })
-        })
-        // const newHosts =  configurations.reduce(Chunk.empty<OrphanedDropChecked>(), (acc, curr) => {
-
-        // })
-      })
-    })
-    // merge newCandidates with state
-    // a. newCandidate arleady exist → update the chunk list, mark orphaned if necessary
-    // b. does not exist → just add it
-    const updatedInstances = instances.toImmutableArray.map(([node, targets]) => {
-      const newTargets = newCandidates.find(candidate => candidate.node === node)
-        // new candidate is attached to an already existing node, update it
-        .map(candidate =>
-          targets.map(([attributename, currentInstances]) => {
-            // targeting the same attribute
-            if (candidate.configuration.path.last.selector === attributename) {
-              let foundPosition = false
-              const newStack = currentInstances.reduce(Chunk.empty<OrphanedDropChecked>(), (instAcc, currInst) => {
-                if (foundPosition) {
-                  return instAcc.append(Orphaned(currInst))
-                }
-                // 1. check if the current instance is in a following configuration (push the candidate before it)
-                const candidatePosition = configurations.indexWhere(c => c.id === candidate.configuration.id)
-                const currInstPosition = configurations.indexWhere(c => c.id === currInst.instance.id)
-                const inputChange: Maybe<DomAttribute> = instAcc.last.map(a => a.instance.outputChange).orElse(() =>
-                  getAttribute(node, attributename)
-                )
-                if (candidatePosition < currInstPosition) {
-                  foundPosition = true
-                  // 2. if the previous output change matches the candidate base target → can push it
-                  // otherwise the candidate is not targeting the same modification
-                  return inputChange.mapNullable(a => a === candidate.configuration.path.last ? a : null).map(() => {
-                    return instAcc.append(Apply({ instance: { ...candidate.configuration, inputChange } })).append(
-                      Orphaned(currInst)
-                    )
-                  })
-                } else {
-                  return instAcc.append(currInst)
-                }
-              })
-              return Tuple(attributename, newStack)
-            } else {
-              return Tuple(attributename, currentInstances)
-            }
-          })
-        )
-        .map(x => Map.from(x))
-        // new candidate is NOT attached to an existing node
-        .getOrElse(() => targets)
-      return Tuple(node, newTargets)
-    })
-
-    const newInstances = newCandidates.filter(candidate =>
-      updatedInstances.filter(([node]) => node === candidate.node).size === 0
-    ).map(({ configuration, node }) =>
-      Tuple(node, Map(Tuple(configuration.outputChange.selector, Chunk(Apply({ instance: configuration })))))
-    )
-  })
+  return Effect.succeedWith(() => instances)
 }
+
+// export function addAllNewMatchedNodes(
+//   configurations: Configurations,
+//   instances: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>>
+// ) {
+//   return Do(($) => {
+//     const { getAttribute, getByHasAttribute } = $(Effect.service(AccessDOM))
+//     const newCandidates = $(
+//       Effect.forEach(
+//         configurations,
+//         configuration =>
+//           getByHasAttribute(configuration.path.last).map(nodes =>
+//             nodes.map(node => ({
+//               node,
+//               configuration
+//             }))
+//           )
+//       ).map(x => x.flatten)
+//     )
+//     const updatedHosts = instances.toImmutableArray.map(([node, targets]) => {
+//       const newTargets = targets.toImmutableArray.map(([attribute, configs]) => {
+//         const newStack = configs.reduce(Chunk.empty<OrphanedDropApply>(), (accInst, currInst) => {
+//           const currInstPosition = configurations.indexWhere(c => c.id === currInst.instance.id)
+//           const inputChange: Maybe<DomAttribute> = currInst.last.map(a => a.instance.outputChange).orElse(() =>
+//             getAttribute(node, attribute)
+//           )
+//           const previousCandidate = configurations.reduceWithIndex(Maybe.empty<Apply>(), (index, found, config) => {
+//             return found.isNone() ?
+//               index < currInstPosition ? Maybe.some(Apply({ instance: { ...config, inputChange } })) : Maybe.none :
+//               Maybe.none
+//           })
+//         })
+//         // const newHosts =  configurations.reduce(Chunk.empty<OrphanedDropChecked>(), (acc, curr) => {
+
+//         // })
+//       })
+//     })
+//     // merge newCandidates with state
+//     // a. newCandidate arleady exist → update the chunk list, mark orphaned if necessary
+//     // b. does not exist → just add it
+//     const updatedInstances = instances.toImmutableArray.map(([node, targets]) => {
+//       const newTargets = newCandidates.find(candidate => candidate.node === node)
+//         // new candidate is attached to an already existing node, update it
+//         .map(candidate =>
+//           targets.map(([attributename, currentInstances]) => {
+//             // targeting the same attribute
+//             if (candidate.configuration.path.last.selector === attributename) {
+//               let foundPosition = false
+//               const newStack = currentInstances.reduce(Chunk.empty<OrphanedDropChecked>(), (instAcc, currInst) => {
+//                 if (foundPosition) {
+//                   return instAcc.append(Orphaned(currInst))
+//                 }
+//                 // 1. check if the current instance is in a following configuration (push the candidate before it)
+//                 const candidatePosition = configurations.indexWhere(c => c.id === candidate.configuration.id)
+//                 const currInstPosition = configurations.indexWhere(c => c.id === currInst.instance.id)
+//                 const inputChange: Maybe<DomAttribute> = instAcc.last.map(a => a.instance.outputChange).orElse(() =>
+//                   getAttribute(node, attributename)
+//                 )
+//                 if (candidatePosition < currInstPosition) {
+//                   foundPosition = true
+//                   // 2. if the previous output change matches the candidate base target → can push it
+//                   // otherwise the candidate is not targeting the same modification
+//                   return inputChange.mapNullable(a => a === candidate.configuration.path.last ? a : null).map(() => {
+//                     return instAcc.append(Apply({ instance: { ...candidate.configuration, inputChange } })).append(
+//                       Orphaned(currInst)
+//                     )
+//                   })
+//                 } else {
+//                   return instAcc.append(currInst)
+//                 }
+//               })
+//               return Tuple(attributename, newStack)
+//             } else {
+//               return Tuple(attributename, currentInstances)
+//             }
+//           })
+//         )
+//         .map(x => Map.from(x))
+//         // new candidate is NOT attached to an existing node
+//         .getOrElse(() => targets)
+//       return Tuple(node, newTargets)
+//     })
+
+//     const newInstances = newCandidates.filter(candidate =>
+//       updatedInstances.filter(([node]) => node === candidate.node).size === 0
+//     ).map(({ configuration, node }) =>
+//       Tuple(node, Map(Tuple(configuration.outputChange.selector, Chunk(Apply({ instance: configuration })))))
+//     )
+//   })
+// }

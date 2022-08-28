@@ -1,11 +1,16 @@
-import { AccessDOM } from "@org/modification/adapters/dom"
-import type { Configuration, PathSelector } from "@org/modification/models/configuration"
+import { AccessDOM } from "@org/modification/adapters/DOM"
+import type { Configuration, Configurations, PathSelector } from "@org/modification/models/configuration"
 import { configuration, ConfigurationId } from "@org/modification/models/configuration"
+import type { AttributeNames } from "@org/modification/models/dom"
 import { ClassNameAttribute, DomAttribute } from "@org/modification/models/dom"
+import type { OrphanedDropChecked } from "@org/modification/models/states"
 import { Applied, Drop, Orphaned } from "@org/modification/models/states"
 import * as App from "@org/modification/program"
 import { DOMParser } from "linkedom"
 import crypto from "node:crypto"
+
+const document = (new DOMParser()).parseFromString("<html />", "text/html")
+const someDomNode = document.createElement("div") as unknown as Element
 
 describe("marking instances that have been removed from configurations list", () => {
   it("marks first orphaned instance", () => {
@@ -64,8 +69,7 @@ describe("marking instances that have been removed from configurations list", ()
 
 describe("marking instances where the actual dom attribute does not match their output", () => {
   const MODIF_OUTPUT = "b"
-  const document = (new DOMParser()).parseFromString("<html />", "text/html")
-  const someDomNode = document.createElement("div") as unknown as Element
+
   const config1Id = ConfigurationId.unsafeMake(crypto.randomUUID())
   const config2Id = ConfigurationId.unsafeMake(crypto.randomUUID())
   const targetPath = ClassNameAttribute({ selector: "className", value: "x" })
@@ -92,8 +96,7 @@ describe("marking instances where the actual dom attribute does not match their 
     const program = App.markDropInstances(someDomNode, Chunk(Applied(instance1Conf), Applied(instance2Conf)))
       .provideService(AccessDOM, {
         getByHasAttribute: () => Effect.succeedWith(() => Chunk(someDomNode)),
-        getAttribute: () =>
-          Effect.succeedWith(() => DomAttribute({ selector: "className", value: CURRENT_DOM_ATTRIBUTE }))
+        getAttribute: () => Maybe.some(DomAttribute({ selector: "className", value: CURRENT_DOM_ATTRIBUTE }))
       })
       .unsafeRunSync()
     assert.deepEqual(program.head, Maybe(Drop(instance1Conf)), "first should be Drop")
@@ -103,10 +106,72 @@ describe("marking instances where the actual dom attribute does not match their 
     const program = App.markDropInstances(someDomNode, Chunk(Applied(instance1Conf), Applied(instance2Conf)))
       .provideService(AccessDOM, {
         getByHasAttribute: () => Effect.succeedWith(() => Chunk(someDomNode)),
-        getAttribute: () => Effect.succeedWith(() => DomAttribute({ selector: "className", value: MODIF_OUTPUT }))
+        getAttribute: () => Maybe.some(DomAttribute({ selector: "className", value: MODIF_OUTPUT }))
       })
       .unsafeRunSync()
     assert.deepEqual(program.head, Maybe(Applied(instance1Conf)), "first should be Applied")
     assert.deepEqual(program.last, Maybe(Applied(instance2Conf)), "last should be Applied")
+  })
+})
+
+describe("merging in new configs in existing state", () => {
+  const config1Input = ClassNameAttribute({ selector: "className", value: "a" })
+  const config1Output = ClassNameAttribute({ selector: "className", value: "b" })
+  const appliedConfig1 = configuration.make({
+    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+    outputChange: config1Output,
+    path: NonEmptyImmutableArray.make<PathSelector[]>(config1Input)
+  })
+  const config2Output = ClassNameAttribute({ selector: "className", value: "b" })
+  const appliedConfig2 = configuration.make({
+    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+    outputChange: config2Output,
+    path: NonEmptyImmutableArray.make<PathSelector[]>(config1Output)
+  })
+  const config3Output = ClassNameAttribute({ selector: "className", value: "c" })
+  const appliedConfig3 = configuration.make({
+    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+    outputChange: config3Output,
+    path: NonEmptyImmutableArray.make<PathSelector[]>(config2Output)
+  })
+  const config4Output = ClassNameAttribute({ selector: "className", value: "d" })
+  const appliedConfig4 = configuration.make({
+    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+    outputChange: config4Output,
+    path: NonEmptyImmutableArray.make<PathSelector[]>(config3Output)
+  })
+  const config5Output = ClassNameAttribute({ selector: "className", value: "e" })
+  const newConfig5 = configuration.make({
+    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+    outputChange: config5Output,
+    path: NonEmptyImmutableArray.make<PathSelector[]>(config4Output)
+  })
+
+  it("adds config5 at the end", () => {
+    const currenState: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>> = Map.from([
+      Tuple(
+        someDomNode,
+        Map.from([Tuple(
+          "className",
+          Chunk(
+            Applied({ instance: { ...appliedConfig1, inputChange: Maybe.some(config1Input) } }),
+            Applied({ instance: { ...appliedConfig2, inputChange: Maybe.some(config1Output) } }),
+            Applied({ instance: { ...appliedConfig3, inputChange: Maybe.some(config2Output) } }),
+            Applied({ instance: { ...appliedConfig4, inputChange: Maybe.some(config3Output) } })
+          )
+        )])
+      )
+    ])
+    const configurations: Configurations = Chunk(
+      appliedConfig1,
+      appliedConfig2,
+      appliedConfig3,
+      appliedConfig4,
+      newConfig5
+    )
+    const program = App.mergeConfigurationsToState(configurations, currenState).unsafeRunSync()
+    const result = Maybe.fromNullable(program.get(someDomNode)).flatMap(a => Maybe.fromNullable(a.get("className")))
+      .flatMap(a => a.last).getOrElse(() => null)
+    assert.deepEqual(result, Applied({ instance: { ...appliedConfig4, inputChange: Maybe.some(config3Output) } }))
   })
 })
