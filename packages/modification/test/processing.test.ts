@@ -4,7 +4,7 @@ import { configuration, ConfigurationId } from "@org/modification/models/configu
 import type { AttributeNames } from "@org/modification/models/dom"
 import { ClassNameAttribute, DomAttribute } from "@org/modification/models/dom"
 import type { OrphanedDropChecked } from "@org/modification/models/states"
-import { Applied, Drop, Orphaned } from "@org/modification/models/states"
+import { Applied, Apply, Drop, Orphaned } from "@org/modification/models/states"
 import * as App from "@org/modification/program"
 import { DOMParser } from "linkedom"
 import crypto from "node:crypto"
@@ -122,30 +122,30 @@ describe("merging in new configs in existing state", () => {
     outputChange: config1Output,
     path: NonEmptyImmutableArray.make<PathSelector[]>(config1Input)
   })
-  const config2Output = ClassNameAttribute({ selector: "className", value: "b" })
+  const config2Output = ClassNameAttribute({ selector: "className", value: "c" })
   const appliedConfig2 = configuration.make({
     id: ConfigurationId.unsafeMake(crypto.randomUUID()),
     outputChange: config2Output,
     path: NonEmptyImmutableArray.make<PathSelector[]>(config1Output)
   })
-  const config3Output = ClassNameAttribute({ selector: "className", value: "c" })
+  const config3Output = ClassNameAttribute({ selector: "className", value: "d" })
   const appliedConfig3 = configuration.make({
     id: ConfigurationId.unsafeMake(crypto.randomUUID()),
     outputChange: config3Output,
     path: NonEmptyImmutableArray.make<PathSelector[]>(config2Output)
   })
-  const config4Output = ClassNameAttribute({ selector: "className", value: "d" })
-  const appliedConfig4 = configuration.make({
-    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
-    outputChange: config4Output,
-    path: NonEmptyImmutableArray.make<PathSelector[]>(config3Output)
-  })
-  const config5Output = ClassNameAttribute({ selector: "className", value: "e" })
-  const newConfig5 = configuration.make({
-    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
-    outputChange: config5Output,
-    path: NonEmptyImmutableArray.make<PathSelector[]>(config4Output)
-  })
+  // const config4Output = ClassNameAttribute({ selector: "className", value: "e" })
+  // const appliedConfig4 = configuration.make({
+  //   id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+  //   outputChange: config4Output,
+  //   path: NonEmptyImmutableArray.make<PathSelector[]>(config3Output)
+  // })
+  // const config5Output = ClassNameAttribute({ selector: "className", value: "f" })
+  // const newConfig5 = configuration.make({
+  //   id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+  //   outputChange: config5Output,
+  //   path: NonEmptyImmutableArray.make<PathSelector[]>(config2Output)
+  // })
 
   it("adds config5 at the end", () => {
     const currenState: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>> = Map.from([
@@ -154,10 +154,10 @@ describe("merging in new configs in existing state", () => {
         Map.from([Tuple(
           "className",
           Chunk(
-            Applied({ instance: { ...appliedConfig1, inputChange: Maybe.some(config1Input) } }),
-            Applied({ instance: { ...appliedConfig2, inputChange: Maybe.some(config1Output) } }),
-            Applied({ instance: { ...appliedConfig3, inputChange: Maybe.some(config2Output) } }),
-            Applied({ instance: { ...appliedConfig4, inputChange: Maybe.some(config3Output) } })
+            Applied({ instance: { ...appliedConfig1, inputChange: Maybe.some(config1Input) } })
+            // Applied({ instance: { ...appliedConfig2, inputChange: Maybe.some(config1Output) } })
+            // Applied({ instance: { ...appliedConfig3, inputChange: Maybe.some(config2Output) } }),
+            // Applied({ instance: { ...appliedConfig4, inputChange: Maybe.some(config3Output) } })
           )
         )])
       )
@@ -165,13 +165,23 @@ describe("merging in new configs in existing state", () => {
     const configurations: Configurations = Chunk(
       appliedConfig1,
       appliedConfig2,
-      appliedConfig3,
-      appliedConfig4,
-      newConfig5
+      appliedConfig3
+      // appliedConfig4,
+      // newConfig5
     )
-    const program = App.mergeConfigurationsToState(configurations, currenState).unsafeRunSync()
+    const program = App.mergeConfigurationsToState(configurations, currenState)
     const result = Maybe.fromNullable(program.get(someDomNode)).flatMap(a => Maybe.fromNullable(a.get("className")))
       .flatMap(a => a.last).getOrElse(() => null)
-    assert.deepEqual(result, Applied({ instance: { ...appliedConfig4, inputChange: Maybe.some(config3Output) } }))
+    assert.deepEqual(
+      result,
+      Apply({ instance: { ...appliedConfig3, inputChange: Maybe.some(config2Output) } }),
+      "last element is the instance from config 5"
+    )
+    assert.equal(
+      Maybe.fromNullable(program.get(someDomNode)).flatMap(a => Maybe.fromNullable(a.get("className"))).map(c => c.size)
+        .getOrElse(() => 0),
+      3,
+      "all new configs have been inserted"
+    )
   })
 })

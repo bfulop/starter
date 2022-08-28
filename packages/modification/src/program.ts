@@ -1,8 +1,14 @@
 import { AccessDOM } from "@org/modification/adapters/DOM"
-import type { Configurations } from "@org/modification/models/configuration"
+import type { Configuration, Configurations } from "@org/modification/models/configuration"
 import type { AttributeNames } from "@org/modification/models/dom"
-import type { Applied, InstancesState, OrphanedChecked, OrphanedDropChecked } from "@org/modification/models/states"
-import { Drop, Orphaned } from "@org/modification/models/states"
+import type {
+  Applied,
+  InstancesState,
+  OrphanedChecked,
+  OrphanedDropApply,
+  OrphanedDropChecked
+} from "@org/modification/models/states"
+import { Apply, Drop, Orphaned } from "@org/modification/models/states"
 import { Tuple } from "@tsplus/stdlib/data/Tuple"
 
 export function markDropInstances(node: ChildNode, instances: Chunk<OrphanedChecked>) {
@@ -96,7 +102,63 @@ export function mergeConfigurationsToState(
   configurations: Configurations,
   instances: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>>
 ) {
-  return Effect.succeedWith(() => instances)
+  const newState = instances.reduce(
+    Map.empty<ChildNode, Map<AttributeNames, Chunk<OrphanedDropApply>>>(),
+    (acc, [node, targets]) => {
+      const newTargets = targets.map(([attributeName, stack]) => {
+        const attributeConfigs = configurations.filter(c => c.outputChange.selector === attributeName)
+        const newStack = stack.reduce(Chunk.empty<OrphanedDropApply>(), (acc, instance) => {
+          // find a config that comes after and has the same input as the last output
+          // AND the next in the stack is not this one
+          console.log("-- currentInstance", instance.instance.path.last.value)
+          const newInstance = attributeConfigs
+            .findIndex(conf => conf.id === instance.instance.id)
+            .map(x => {
+              console.log("startindex", x)
+              return x
+            })
+            .map((startIndex) => {
+              const res: Chunk<Configuration> = attributeConfigs.takeRight(attributeConfigs.size - startIndex - 1)
+              return res
+            })
+            .map(nextConfigs =>
+              nextConfigs.reduce(Chunk.empty<Apply>(), (acc, curr) => {
+                const isChained = acc
+                  .last
+                  .flatMap(accLast =>
+                    accLast.instance.outputChange === curr.path.last ? Maybe(accLast.instance.outputChange) : Maybe.none
+                  )
+                  .orElse(
+                    instance.instance.outputChange === curr.path.last ?
+                      Maybe(instance.instance.outputChange) :
+                      Maybe.none
+                  )
+                  .map(inputChange => Apply({ instance: { ...curr, inputChange: Maybe(inputChange) } }))
+                // .map(x => x)
+                return isChained.map(i => acc.append(i)).getOrElse(() => acc)
+              })
+            )
+            .map(x => {
+              console.log("here")
+              x.map(b => {
+                console.log("&&&&", b)
+              })
+              return x
+            })
+            .getOrElse(() => Chunk(instance))
+          const res = acc.concat(newInstance)
+          console.log("^^^^^^")
+          res.forEach(x => console.log("acc", x.instance.path.last.value))
+          console.log("^^^^^^")
+          return res
+        })
+        return Tuple(attributeName, newStack)
+      })
+      const what = Map.from(newTargets)
+      return acc.set(node, what)
+    }
+  )
+  return newState
 }
 
 // export function addAllNewMatchedNodes(
