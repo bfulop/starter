@@ -147,7 +147,7 @@ describe("merging in new configs in existing state", () => {
   //   path: NonEmptyImmutableArray.make<PathSelector[]>(config2Output)
   // })
 
-  it.skip("adds new configs at the end", () => {
+  it("adds new configs at the end", () => {
     const currenState: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>> = Map.from([
       Tuple(
         someDomNode,
@@ -202,8 +202,8 @@ describe("merging in new configs in existing state", () => {
     const configurations: Configurations = Chunk(
       appliedConfig1,
       appliedConfig2,
-      appliedConfig3
-      // appliedConfig4,
+      appliedConfig3,
+      appliedConfig4
       // newConfig5
     )
     const program = App.mergeConfigurationsToState(configurations, currenState)
@@ -211,13 +211,50 @@ describe("merging in new configs in existing state", () => {
       .flatMap(a => a.last).getOrElse(() => null)
     assert.deepEqual(
       result,
-      Applied({ instance: { ...appliedConfig4, inputChange: Maybe.some(config3Output) } }),
+      Apply({ instance: { ...appliedConfig4, inputChange: Maybe.some(config3Output) } }),
       "last element is the instance from config 4"
     )
     assert.equal(
       Maybe.fromNullable(program.get(someDomNode)).flatMap(a => Maybe.fromNullable(a.get("className"))).map(c => c.size)
         .getOrElse(() => 0),
       4,
+      "all new configs have been inserted"
+    )
+  })
+  it("inserts new configs in the middle, removes following", () => {
+    const currenState: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>> = Map.from([
+      Tuple(
+        someDomNode,
+        Map.from([Tuple(
+          "className",
+          Chunk(
+            Applied({ instance: { ...appliedConfig1, inputChange: Maybe.some(config1Input) } }),
+            // Applied({ instance: { ...appliedConfig2, inputChange: Maybe.some(config1Output) } })
+            Applied({ instance: { ...appliedConfig3, inputChange: Maybe.some(config1Output) } }),
+            Applied({ instance: { ...appliedConfig4, inputChange: Maybe.some(config3Output) } })
+          )
+        )])
+      )
+    ])
+    const configurations: Configurations = Chunk(
+      appliedConfig1,
+      appliedConfig2,
+      appliedConfig3
+      // appliedConfig4
+      // newConfig5
+    )
+    const program = App.mergeConfigurationsToState(configurations, currenState)
+    const result = Maybe.fromNullable(program.get(someDomNode)).flatMap(a => Maybe.fromNullable(a.get("className")))
+      .flatMap(a => a.last).getOrElse(() => null)
+    assert.deepEqual(
+      result,
+      Apply({ instance: { ...appliedConfig3, inputChange: Maybe.some(config2Output) } }),
+      "last element is the instance from config 3, config 4 is removed"
+    )
+    assert.equal(
+      Maybe.fromNullable(program.get(someDomNode)).flatMap(a => Maybe.fromNullable(a.get("className"))).map(c => c.size)
+        .getOrElse(() => 0),
+      3,
       "all new configs have been inserted"
     )
   })
