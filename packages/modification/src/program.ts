@@ -108,9 +108,18 @@ export function mergeConfigurationsToState(
       const newTargets = targets.map(([attributeName, stack]) => {
         const attributeConfigs = configurations.filter(c => c.outputChange.selector === attributeName)
         const newStack = stack.reduce(Chunk.empty<OrphanedDropApply>(), (acc, instance) => {
+          const isOrphanedInstance = acc.last.flatMap(i =>
+            attributeConfigs.findIndex(conf => i.instance.id === conf.id)
+          ).flatMap(
+            lastIndex =>
+              attributeConfigs.findIndex(conf => instance.instance.id === conf.id).map(currentIndex =>
+                currentIndex <= lastIndex
+              )
+          ).getOrElse(() => false)
+          if (isOrphanedInstance) return acc
           // find a config that comes after and has the same input as the last output
           // AND the next in the stack is not this one
-          console.log("-- currentInstance", instance.instance.path.last.value)
+          console.log("-- currentInstance", instance.instance.outputChange.value)
           const newInstance = attributeConfigs
             .findIndex(conf => conf.id === instance.instance.id)
             .map(x => {
@@ -134,23 +143,23 @@ export function mergeConfigurationsToState(
                       Maybe.none
                   )
                   .map(inputChange => Apply({ instance: { ...curr, inputChange: Maybe(inputChange) } }))
-                // .map(x => x)
                 return isChained.map(i => acc.append(i)).getOrElse(() => acc)
               })
             )
             .map(x => {
-              console.log("here")
+              console.log("nextConfigs", x.size)
               x.map(b => {
-                console.log("&&&&", b)
+                console.log("&&&&", b.instance.outputChange.value)
               })
-              return x
+              return x.prepend(instance)
             })
             .getOrElse(() => Chunk(instance))
-          const res = acc.concat(newInstance)
-          console.log("^^^^^^")
-          res.forEach(x => console.log("acc", x.instance.path.last.value))
-          console.log("^^^^^^")
-          return res
+          console.log("size of newInstance", newInstance.size)
+
+          return acc.concat(newInstance).map(x => {
+            console.log("acc", x.instance.outputChange.value)
+            return x
+          })
         })
         return Tuple(attributeName, newStack)
       })
