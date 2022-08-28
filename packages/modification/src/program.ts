@@ -92,12 +92,6 @@ export function markOrphanedAndDrop(configurations: Ref<Configurations>, instanc
   return newState.map(x => Map.from(x))
 }
 
-// finding all matched elements
-// 1. easy: querySelector
-// 2.
-// → look up previous Instance.out
-// → it must be Applied or toApply
-// → add onto the ChildNode stack
 export function mergeConfigurationsToState(
   configurations: Configurations,
   instances: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>>
@@ -155,4 +149,11 @@ export function mergeConfigurationsToState(
     }
   )
   return newState
+}
+
+export function mergeNewNodeMatchesToState(
+  configurations: Configurations,
+  instances: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>>
+) {
+  return true
 }
