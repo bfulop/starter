@@ -346,4 +346,37 @@ describe("merging new hosts into existing state", () => {
       "new Apply instance has been added to host"
     )
   })
+
+  it("adds a new target for an existing host", () => {
+    const INPUT_DOM_ATTRIBUTE = DomAttribute({ selector: "className", value: "c" })
+    const configurations: Configurations = Chunk(
+      appliedConfig1,
+      appliedConfig2
+    )
+    const currenState: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>> = Map.from([
+      Tuple(
+        someDomNode,
+        Map.from([Tuple(
+          "id",
+          Chunk(
+            Applied({ instance: { ...appliedConfig1, inputChange: Maybe.some(config1Input) } })
+          )
+        )])
+      )
+    ])
+    const program = App
+      .mergeNewNodeMatchesToState(configurations, currenState)
+      .provideService(AccessDOM, {
+        getAttribute: () => Maybe.some(INPUT_DOM_ATTRIBUTE),
+        getByHasAttribute: () => Effect.succeedWith(() => Chunk(someDomNode))
+      })
+    const subject = program.unsafeRunSync()
+    const result = Maybe.fromNullable(subject.get(someDomNode)).flatMap(a => Maybe.fromNullable(a.get("className")))
+      .flatMap(a => a.last).getOrElse(() => null)
+    assert.deepEqual(
+      result,
+      Apply({ instance: { ...appliedConfig2, inputChange: Maybe.some(INPUT_DOM_ATTRIBUTE) } }),
+      "new Apply instance has been added to existing host, className attribute"
+    )
+  })
 })

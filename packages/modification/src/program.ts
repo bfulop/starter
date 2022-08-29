@@ -156,24 +156,47 @@ export function mergeNewNodeMatchesToState(
   instances: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropApply>>>
 ) {
   return Do(($) => {
-    const { getByHasAttribute } = $(Effect.service(AccessDOM))
+    const { getAttribute, getByHasAttribute } = $(Effect.service(AccessDOM))
     const newNodeMatches = Effect.forEach(
       configurations,
       (config) => getByHasAttribute(config.path.last).map(nodes => nodes.map(node => ({ node, configuration: config })))
     )
       .map(x => x.flatten)
       .map(x =>
-        x.reduce(instances, (acc, curr) =>
-          acc.set(
-            curr.node,
-            Map.from<AttributeNames, Chunk<Apply>>([
-              Tuple(
-                curr.configuration.outputChange.selector,
-                Chunk(Apply({ instance: { ...curr.configuration, inputChange: Maybe.none } }))
+        x.reduce(instances, (acc, { configuration, node }) =>
+          Maybe
+            .fromNullable(acc.get(node))
+            .map(targets =>
+              targets.set(
+                configuration.outputChange.selector,
+                Chunk(
+                  Apply({
+                    instance: { ...configuration, inputChange: getAttribute(node, configuration.outputChange.selector) }
+                  })
+                )
               )
-            ])
-          ))
+            )
+            .map(targets => acc.set(node, targets))
+            .getOrElse(() =>
+              acc.set(
+                node,
+                Map.from<AttributeNames, Chunk<Apply>>([
+                  Tuple(
+                    configuration.outputChange.selector,
+                    Chunk(
+                      Apply({
+                        instance: {
+                          ...configuration,
+                          inputChange: getAttribute(node, configuration.outputChange.selector)
+                        }
+                      })
+                    )
+                  )
+                ])
+              )
+            ))
       )
+
     return $(newNodeMatches)
   })
 }
