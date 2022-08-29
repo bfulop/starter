@@ -298,3 +298,52 @@ describe("merging in new configs in existing state", () => {
     )
   })
 })
+
+describe("merging new hosts into existing state", () => {
+  const config1Input = ClassNameAttribute({ selector: "className", value: "a" })
+  const config1Output = ClassNameAttribute({ selector: "className", value: "b" })
+  const appliedConfig1 = configuration.make({
+    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+    outputChange: config1Output,
+    path: NonEmptyImmutableArray.make<PathSelector[]>(config1Input)
+  })
+  const config2Output = ClassNameAttribute({ selector: "className", value: "c" })
+  const appliedConfig2 = configuration.make({
+    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+    outputChange: config2Output,
+    path: NonEmptyImmutableArray.make<PathSelector[]>(ClassNameAttribute({ selector: "className", value: "f" }))
+  })
+  const newDomNode = document.createElement("div") as unknown as Element
+
+  it("adds a new host", () => {
+    const configurations: Configurations = Chunk(
+      appliedConfig1,
+      appliedConfig2
+    )
+    const currenState: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>> = Map.from([
+      Tuple(
+        someDomNode,
+        Map.from([Tuple(
+          "className",
+          Chunk(
+            Applied({ instance: { ...appliedConfig1, inputChange: Maybe.some(config1Input) } })
+          )
+        )])
+      )
+    ])
+    const program = App
+      .mergeNewNodeMatchesToState(configurations, currenState)
+      .provideService(AccessDOM, {
+        getAttribute: () => Maybe.none,
+        getByHasAttribute: () => Effect.succeedWith(() => Chunk(newDomNode))
+      })
+    const subject = program.unsafeRunSync()
+    const result = Maybe.fromNullable(subject.get(newDomNode)).flatMap(a => Maybe.fromNullable(a.get("className")))
+      .flatMap(a => a.last).getOrElse(() => null)
+    assert.deepEqual(
+      result,
+      Apply({ instance: { ...appliedConfig2, inputChange: Maybe.none } }),
+      "new Apply instance has been added to host"
+    )
+  })
+})

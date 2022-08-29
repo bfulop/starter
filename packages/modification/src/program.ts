@@ -153,7 +153,27 @@ export function mergeConfigurationsToState(
 
 export function mergeNewNodeMatchesToState(
   configurations: Configurations,
-  instances: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropChecked>>>
+  instances: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropApply>>>
 ) {
-  return true
+  return Do(($) => {
+    const { getByHasAttribute } = $(Effect.service(AccessDOM))
+    const newNodeMatches = Effect.forEach(
+      configurations,
+      (config) => getByHasAttribute(config.path.last).map(nodes => nodes.map(node => ({ node, configuration: config })))
+    )
+      .map(x => x.flatten)
+      .map(x =>
+        x.reduce(instances, (acc, curr) =>
+          acc.set(
+            curr.node,
+            Map.from<AttributeNames, Chunk<Apply>>([
+              Tuple(
+                curr.configuration.outputChange.selector,
+                Chunk(Apply({ instance: { ...curr.configuration, inputChange: Maybe.none } }))
+              )
+            ])
+          ))
+      )
+    return $(newNodeMatches)
+  })
 }
