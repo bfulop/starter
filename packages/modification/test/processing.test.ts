@@ -380,3 +380,93 @@ describe("merging new hosts into existing state", () => {
     )
   })
 })
+
+describe("matching a path selector against DOM and App state", () => {
+  const config1Input = ClassNameAttribute({ selector: "className", value: "a" })
+  const config1Output = ClassNameAttribute({ selector: "className", value: "b" })
+  const appliedConfig1 = configuration.make({
+    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+    outputChange: config1Output,
+    path: NonEmptyImmutableArray.make<PathSelector[]>(config1Input)
+  })
+  const config2Output = ClassNameAttribute({ selector: "className", value: "c" })
+  const appliedConfig2 = configuration.make({
+    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+    outputChange: config2Output,
+    path: NonEmptyImmutableArray.make<PathSelector[]>(config1Output)
+  })
+  const config3Output = ClassNameAttribute({ selector: "className", value: "d" })
+  const subjectConfigTargetSelector = ClassNameAttribute({ selector: "className", value: "c" })
+  const subjectConfig3 = configuration.make({
+    id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+    outputChange: config3Output,
+    path: NonEmptyImmutableArray.make<PathSelector[]>(
+      subjectConfigTargetSelector,
+      ClassNameAttribute({ selector: "className", value: "z" })
+    )
+  })
+  const configurations: Configurations = Chunk(
+    appliedConfig1,
+    appliedConfig2,
+    subjectConfig3
+  )
+
+  it("matches dom attribute when no modification is active", () => {
+    const program = App.validateSelector(
+      configurations,
+      subjectConfig3,
+      Maybe.none,
+      config2Output,
+      subjectConfigTargetSelector
+    )
+    assert.isTrue(program, "simple compare of current DOM attribute value")
+  })
+
+  it("matches selector based on attached instances stack", () => {
+    const instances = Chunk(
+      Applied({ instance: { ...appliedConfig1, inputChange: Maybe.some(config1Input) } }),
+      Applied({ instance: { ...appliedConfig2, inputChange: Maybe.some(config1Output) } })
+    )
+
+    const program = App.validateSelector(
+      configurations,
+      subjectConfig3,
+      Maybe(instances),
+      config2Output,
+      subjectConfigTargetSelector
+    )
+    assert.isTrue(program)
+  })
+
+  it("does not match selector based on attached instances stack", () => {
+    const Config1 = configuration.make({
+      id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+      outputChange: config1Output,
+      path: NonEmptyImmutableArray.make<PathSelector[]>(config1Input)
+    })
+    const config2Output = ClassNameAttribute({ selector: "className", value: "NOT_MATCH" })
+    const Config2 = configuration.make({
+      id: ConfigurationId.unsafeMake(crypto.randomUUID()),
+      outputChange: config2Output,
+      path: NonEmptyImmutableArray.make<PathSelector[]>(config1Output)
+    })
+    const instances = Chunk(
+      Applied({ instance: { ...Config1, inputChange: Maybe.some(config1Input) } }),
+      Applied({ instance: { ...Config2, inputChange: Maybe.some(config1Output) } })
+    )
+    const configurations2: Configurations = Chunk(
+      Config1,
+      Config2,
+      subjectConfig3
+    )
+
+    const program = App.validateSelector(
+      configurations2,
+      subjectConfig3,
+      Maybe(instances),
+      ClassNameAttribute({ selector: "className", value: "f" }),
+      subjectConfigTargetSelector
+    )
+    assert.isFalse(program)
+  })
+})

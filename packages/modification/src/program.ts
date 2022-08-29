@@ -1,6 +1,6 @@
 import { AccessDOM } from "@org/modification/adapters/DOM"
-import type { Configurations } from "@org/modification/models/configuration"
-import type { AttributeNames } from "@org/modification/models/dom"
+import type { Configuration, Configurations } from "@org/modification/models/configuration"
+import type { AttributeNames, DomAttribute } from "@org/modification/models/dom"
 import type {
   Applied,
   InstancesState,
@@ -199,4 +199,23 @@ export function mergeNewNodeMatchesToState(
 
     return $(newNodeMatches)
   })
+}
+
+export function validateSelector(
+  configurations: Configurations,
+  targetConfiguration: Configuration,
+  instances: Maybe<Chunk<OrphanedDropChecked>>,
+  targetAttributeValue: DomAttribute,
+  currentAttributeValue: DomAttribute
+) {
+  return instances
+    .map((activeInstances) => {
+      const targetPosition = configurations.indexWhere(conf => conf.id === targetConfiguration.id)
+      return activeInstances
+        .filter(inst => configurations.indexWhere(conf => conf.id === inst.instance.id) < targetPosition)
+        .find(inst => inst.instance.outputChange.value === targetAttributeValue.value)
+        .map(() => true)
+        .getOrElse(() => false)
+    })
+    .getOrElse(() => targetAttributeValue.value === currentAttributeValue.value)
 }
