@@ -3,7 +3,7 @@ import type { Configuration, Configurations, PathSelector } from "@org/modificat
 import { configuration, ConfigurationId } from "@org/modification/models/configuration"
 import type { AttributeNames } from "@org/modification/models/dom"
 import { ClassNameAttribute, DomAttribute } from "@org/modification/models/dom"
-import type { OrphanedDropChecked } from "@org/modification/models/states"
+import type { OrphanedDropApply, OrphanedDropChecked } from "@org/modification/models/states"
 import { Applied, Apply, Drop, Orphaned } from "@org/modification/models/states"
 import * as App from "@org/modification/program"
 import { DOMParser } from "linkedom"
@@ -96,7 +96,8 @@ describe("marking instances where the actual dom attribute does not match their 
     const program = App.markDropInstances(someDomNode, Chunk(Applied(instance1Conf), Applied(instance2Conf)))
       .provideService(AccessDOM, {
         getByHasAttribute: () => Effect.succeedWith(() => Chunk(someDomNode)),
-        getAttribute: () => Maybe.some(DomAttribute({ selector: "className", value: CURRENT_DOM_ATTRIBUTE }))
+        getAttribute: () => Maybe.some(DomAttribute({ selector: "className", value: CURRENT_DOM_ATTRIBUTE })),
+        getParent: () => Maybe.none
       })
       .unsafeRunSync()
     assert.deepEqual(program.head, Maybe(Drop(instance1Conf)), "first should be Drop")
@@ -106,7 +107,8 @@ describe("marking instances where the actual dom attribute does not match their 
     const program = App.markDropInstances(someDomNode, Chunk(Applied(instance1Conf), Applied(instance2Conf)))
       .provideService(AccessDOM, {
         getByHasAttribute: () => Effect.succeedWith(() => Chunk(someDomNode)),
-        getAttribute: () => Maybe.some(DomAttribute({ selector: "className", value: MODIF_OUTPUT }))
+        getAttribute: () => Maybe.some(DomAttribute({ selector: "className", value: MODIF_OUTPUT })),
+        getParent: () => Maybe.none
       })
       .unsafeRunSync()
     assert.deepEqual(program.head, Maybe(Applied(instance1Conf)), "first should be Applied")
@@ -335,7 +337,8 @@ describe("merging new hosts into existing state", () => {
       .mergeNewNodeMatchesToState(configurations, currenState)
       .provideService(AccessDOM, {
         getAttribute: () => Maybe.none,
-        getByHasAttribute: () => Effect.succeedWith(() => Chunk(newDomNode))
+        getByHasAttribute: () => Effect.succeedWith(() => Chunk(newDomNode)),
+        getParent: () => Maybe.none
       })
     const subject = program.unsafeRunSync()
     const result = Maybe.fromNullable(subject.get(newDomNode)).flatMap(a => Maybe.fromNullable(a.get("className")))
@@ -368,7 +371,8 @@ describe("merging new hosts into existing state", () => {
       .mergeNewNodeMatchesToState(configurations, currenState)
       .provideService(AccessDOM, {
         getAttribute: () => Maybe.some(INPUT_DOM_ATTRIBUTE),
-        getByHasAttribute: () => Effect.succeedWith(() => Chunk(someDomNode))
+        getByHasAttribute: () => Effect.succeedWith(() => Chunk(someDomNode)),
+        getParent: () => Maybe.none
       })
     const subject = program.unsafeRunSync()
     const result = Maybe.fromNullable(subject.get(someDomNode)).flatMap(a => Maybe.fromNullable(a.get("className")))
@@ -415,10 +419,8 @@ describe("matching a path selector against DOM and App state", () => {
     const program = App.validateSelector(
       configurations,
       subjectConfig3,
-      Maybe.none,
-      config2Output,
       subjectConfigTargetSelector
-    )
+    )(Either.left(Maybe(config2Output)))
     assert.isTrue(program, "simple compare of current DOM attribute value")
   })
 
@@ -431,10 +433,8 @@ describe("matching a path selector against DOM and App state", () => {
     const program = App.validateSelector(
       configurations,
       subjectConfig3,
-      Maybe(instances),
-      config2Output,
       subjectConfigTargetSelector
-    )
+    )(Either.right(instances))
     assert.isTrue(program)
   })
 
@@ -463,10 +463,65 @@ describe("matching a path selector against DOM and App state", () => {
     const program = App.validateSelector(
       configurations2,
       subjectConfig3,
-      Maybe(instances),
-      ClassNameAttribute({ selector: "className", value: "f" }),
       subjectConfigTargetSelector
-    )
+    )(Either.right(instances))
     assert.isFalse(program)
+  })
+})
+
+describe("validating an instance", () => {
+  const tree = (new DOMParser()).parseFromString(
+    `<html>
+  <body>
+    <div class="1a">
+      <div class="2a">
+        <div class="3a" id="target">
+        </div
+      </div>
+    </div>
+  </body>
+  </html>`,
+    "text/html"
+  )
+  const node = tree.getElementById("target") as unknown as Element
+  const subjectId = ConfigurationId.unsafeMake(crypto.randomUUID())
+  it("validates instance when path matches", () => {
+    const subjectConfigPath = NonEmptyImmutableArray.make<PathSelector[]>(
+      ClassNameAttribute({ "selector": "className", "value": "2a" }),
+      ClassNameAttribute({ "selector": "className", "value": "3a" })
+    )
+    const subjectConfig: Configuration = configuration.make({
+      id: subjectId,
+      path: subjectConfigPath,
+      outputChange: ClassNameAttribute({ selector: "className", value: "3b" })
+    })
+    const subjectInstance = Apply({
+      instance: { ...subjectConfig, inputChange: Maybe(ClassNameAttribute({ selector: "className", value: "3a" })) }
+    })
+    const configurations: Configurations = Chunk(subjectConfig)
+    const currenState: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropApply>>> = Map.from([
+      Tuple(
+        node,
+        Map.from([Tuple(
+          "className",
+          Chunk(subjectInstance)
+        )])
+      )
+    ])
+
+    const program = App
+      .validateInstancePath(configurations, subjectInstance, node, currenState)
+      .provideService(AccessDOM, {
+        getAttribute: (node: ChildNode) => {
+          const elem = node as unknown as Element
+          return Maybe.fromNullable(elem.getAttribute("class")).map(a =>
+            ClassNameAttribute({ selector: "className", value: a })
+          )
+        },
+        getByHasAttribute: () => Effect.succeedWith(() => Chunk.empty()),
+        getParent: (node: ChildNode) => Maybe.fromNullable(node.parentNode as unknown as Element)
+      })
+      .unsafeRunSync()
+    assert.isTrue(program)
   })
 })

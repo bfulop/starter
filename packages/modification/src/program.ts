@@ -204,18 +204,55 @@ export function mergeNewNodeMatchesToState(
 export function validateSelector(
   configurations: Configurations,
   targetConfiguration: Configuration,
-  instances: Maybe<Chunk<OrphanedDropChecked>>,
-  targetAttributeValue: DomAttribute,
-  currentAttributeValue: DomAttribute
+  targetAttributeValue: DomAttribute
 ) {
-  return instances
-    .map((activeInstances) => {
-      const targetPosition = configurations.indexWhere(conf => conf.id === targetConfiguration.id)
-      return activeInstances
-        .filter(inst => configurations.indexWhere(conf => conf.id === inst.instance.id) < targetPosition)
-        .find(inst => inst.instance.outputChange.value === targetAttributeValue.value)
-        .map(() => true)
-        .getOrElse(() => false)
-    })
-    .getOrElse(() => targetAttributeValue.value === currentAttributeValue.value)
+  return (compareTarget: Either<Maybe<DomAttribute>, Chunk<OrphanedDropApply>>) => {
+    return compareTarget
+      .map((activeInstances) => {
+        const targetPosition = configurations.indexWhere(conf => conf.id === targetConfiguration.id)
+        return activeInstances
+          .filter(inst => configurations.indexWhere(conf => conf.id === inst.instance.id) < targetPosition)
+          .find(inst => inst.instance.outputChange.value === targetAttributeValue.value)
+          .map(() => true)
+          .getOrElse(() => false)
+      })
+      .getOrElse(domAttr =>
+        domAttr.map((currentAttributeValue) => targetAttributeValue.value === currentAttributeValue.value).getOrElse(
+          () => false
+        )
+      )
+  }
+}
+
+export function validateInstancePath(
+  configurations: Configurations,
+  instance: Apply | Applied,
+  node: ChildNode,
+  currentState: Map<ChildNode, Map<AttributeNames, Chunk<OrphanedDropApply>>>
+) {
+  return Do(($) => {
+    const { getAttribute, getParent } = $(Effect.service(AccessDOM))
+    const result = instance.instance.path
+      .take(instance.instance.path.size - 1)
+      .reduce({ currentNode: getParent(node), isValid: false }, ({ currentNode, isValid }, currentTargetSelector) => {
+        if (isValid === true) return { currentNode, isValid }
+        let targetNode = currentNode
+        let matchesSelector = false
+        while (targetNode.isSome() && matchesSelector === false) {
+          const targetNodeSome = targetNode.value
+          const targetStack = Maybe
+            .fromNullable(currentState.get(targetNodeSome))
+            .flatMap(targets => Maybe.fromNullable(targets.get(currentTargetSelector.selector)))
+
+          matchesSelector = validateSelector(configurations, instance.instance, currentTargetSelector)(Either.fromMaybe(
+            targetStack,
+            () => getAttribute(targetNodeSome, currentTargetSelector.selector)
+          ))
+
+          if (matchesSelector === false) targetNode = getParent(targetNode.value)
+        }
+        return { currentNode: targetNode, isValid: matchesSelector }
+      })
+    return result.isValid
+  })
 }
